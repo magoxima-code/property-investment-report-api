@@ -15,7 +15,7 @@
   h2{font-size:20px;margin:16px 0 10px}
   h3{font-size:16px;margin:0 0 8px;color:#0f172a}
   label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
-  input,select{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px}
+  input{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px}
   .row{display:flex;gap:12px;align-items:center;justify-content:space-between}
   .muted{color:#64748b;font-size:12px}
   .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
@@ -25,13 +25,11 @@
   th{color:#64748b;font-weight:600}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  .cols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+  .cols3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
   .btn{background:var(--indigo);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-size:14px;cursor:pointer}
   .btn:disabled{opacity:.6;cursor:not-allowed}
   .btn.print{background:var(--green)}
-  details{border:1px dashed var(--line);border-radius:12px;padding:10px}
-  details summary{cursor:pointer;font-weight:600}
-  .cols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-  .cols3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
   @media (max-width:1024px){
     .metrics{grid-template-columns:repeat(2,1fr)}
     .cols,.cols3{grid-template-columns:1fr 1fr}
@@ -51,56 +49,55 @@
 
 <div class="container">
 
-  <!-- TOP: INPUT FORM -->
+  <!-- TOP: FULL INPUT FORM (all defaults visible) -->
   <div class="card pad no-print">
     <h1>Property Report Builder</h1>
     <form id="f">
       <label>Property Address</label>
-      <input id="addr" placeholder="111/113 Cultural Park Blvd S, Cape Coral, FL 33990" required />
+      <input id="addr" required placeholder="111/113 Cultural Park Blvd S, Cape Coral, FL 33990"/>
 
       <div class="cols3" style="margin-top:10px">
         <div>
           <label>Purchase Price (USD)</label>
-          <input id="price" placeholder="500000" />
+          <input id="price" value="0"/>
         </div>
         <div>
-          <label>Target Cap % (optional, default 8%)</label>
-          <input id="targetcap" placeholder="8" />
+          <label>Target Cap %</label>
+          <input id="targetcap" value="8"/>
         </div>
         <div style="display:flex;align-items:flex-end">
           <button id="go" class="btn" type="submit" style="width:100%">Generate</button>
         </div>
       </div>
 
-      <details style="margin-top:12px">
-        <summary>Advanced underwriting inputs (optional)</summary>
-        <div class="cols" style="margin-top:10px">
-          <div><label>Down %</label><input id="down" placeholder="25"/></div>
-          <div><label>Rate % (annual)</label><input id="rate" placeholder="7.7"/></div>
-          <div><label>Term (years)</label><input id="term" placeholder="30"/></div>
-          <div><label>Points %</label><input id="points" placeholder="0"/></div>
-          <div><label>Closing %</label><input id="closing" placeholder="2"/></div>
-          <div><label>Rehab ($)</label><input id="rehab" placeholder="0"/></div>
-          <div><label>Vacancy %</label><input id="vacancy" placeholder="5"/></div>
-          <div><label>Management % of EGI</label><input id="mgmt" placeholder="8"/></div>
-          <div><label>Maintenance % of Gross</label><input id="maint" placeholder="8"/></div>
-          <div><label>Taxes ($/yr)</label><input id="taxes" placeholder="0"/></div>
-          <div><label>Insurance ($/yr)</label><input id="ins" placeholder="0"/></div>
-          <div><label>HOA ($/yr)</label><input id="hoa" placeholder="0"/></div>
-          <div><label>Utilities ($/yr)</label><input id="utils" placeholder="0"/></div>
-          <div><label>Other OpEx ($/yr)</label><input id="other" placeholder="0"/></div>
+      <div class="cols" style="margin-top:12px">
+        <div><label>Down %</label><input id="down" value="25"/></div>
+        <div><label>Rate % (annual)</label><input id="rate" value="7.7"/></div>
+        <div><label>Term (years)</label><input id="term" value="30"/></div>
+        <div><label>Points %</label><input id="points" value="0"/></div>
+        <div><label>Closing %</label><input id="closing" value="2"/></div>
+        <div><label>Rehab ($)</label><input id="rehab" value="0"/></div>
+        <div><label>Vacancy %</label><input id="vacancy" value="5"/></div>
+        <div><label>Management % of EGI</label><input id="mgmt" value="8"/></div>
+        <div><label>Maintenance % of Gross</label><input id="maint" value="8"/></div>
+        <div><label>Taxes ($/yr)</label><input id="taxes" value="0"/></div>
+        <div><label>Insurance ($/yr)</label><input id="ins" value="0"/></div>
+        <div><label>HOA ($/yr)</label><input id="hoa" value="0"/></div>
+        <div><label>Utilities ($/yr)</label><input id="utils" value="0"/></div>
+        <div><label>Other OpEx ($/yr)</label><input id="other" value="0"/></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:28px">
+          <input type="checkbox" id="selfmgmt"/>
+          <label for="selfmgmt" style="margin:0">Self-managed (sets management to 0%)</label>
         </div>
-        <div style="margin-top:10px">
-          <label style="display:flex;gap:8px;align-items:center">
-            <input type="checkbox" id="selfmgmt"/> Self-managed (sets management to 0%)
-          </label>
-        </div>
-      </details>
+      </div>
 
-      <div class="muted" style="margin-top:10px">Defaults used when a field is empty: down 25%, rate 7.70%, term 30y, vacancy 5%, management 8% (or 0% if self-managed), maintenance 8%, taxes 0, insurance 0, HOA 0, utilities 0, other 0, closing 2%, points 0%, rehab 0, target cap 8%.</div>
       <div class="row" style="margin-top:10px">
         <div class="muted" id="err" style="min-height:18px"></div>
         <button type="button" class="btn print" onclick="window.print()">Download / Print PDF</button>
+      </div>
+      <div class="muted" style="margin-top:6px">
+        Defaults used above: down 25%, rate 7.70%, term 30y, vacancy 5%, management 8% (0% if self-managed),
+        maintenance 8%, closing 2%, points 0%, rehab 0, taxes 0, insurance 0, HOA 0, utilities 0, other 0, target cap 8%.
       </div>
     </form>
   </div>
@@ -115,6 +112,7 @@
 
 <script>
 const API = "/api/generate";
+const DEBUG = new URLSearchParams(location.search).has("debug");
 
 /* ---------- Helpers ---------- */
 const fmtUSD = n => (n==null||isNaN(n)) ? "-" :
@@ -356,53 +354,70 @@ function table(headers, rows){
   return `<table>${thead}<tbody>${body}</tbody></table>`;
 }
 
-/* ---------- Build overrides & submit ---------- */
+/* ---------- Build overrides (ALWAYS include all fields) & submit ---------- */
 const errBox = document.getElementById("err");
 const btn = document.getElementById("go");
+
+function numVal(id){ const v = document.getElementById(id).value.trim(); return v===""?null:Number(v.replace(/[$,\s]/g,"")); }
+function strVal(id){ return document.getElementById(id).value.trim(); }
+
 document.getElementById("f").addEventListener("submit", async (e)=>{
   e.preventDefault();
   errBox.textContent=""; btn.disabled = true; btn.textContent = "Generating…";
 
-  const address = document.getElementById("addr").value.trim();
-  const purchasePrice = Number((document.getElementById("price").value||"").replace(/[$,\\s]/g,"")) || undefined;
-
-  // Build overrides string from advanced inputs (add only if user filled)
-  const parts = [];
-  const v = id => document.getElementById(id).value.trim();
-
-  if (document.getElementById("selfmgmt").checked) parts.push("self-managed");
-  if (v("down")) parts.push(`down ${v("down")}%`);
-  if (v("rate")) parts.push(`rate ${v("rate")}%`);
-  if (v("term")) parts.push(`term ${v("term")}y`);
-  if (v("points")) parts.push(`points ${v("points")}%`);
-  if (v("closing")) parts.push(`closing ${v("closing")}%`);
-  if (v("rehab")) parts.push(`rehab ${Number(v("rehab").replace(/[$,\\s]/g,""))}`);
-  if (v("vacancy")) parts.push(`vacancy ${v("vacancy")}%`);
-  if (v("mgmt")) parts.push(`management ${v("mgmt")}%`);
-  if (v("maint")) parts.push(`maintenance ${v("maint")}%`);
-  if (v("taxes")) parts.push(`taxes ${Number(v("taxes").replace(/[$,\\s]/g,""))}`);
-  if (v("ins")) parts.push(`insurance ${Number(v("ins").replace(/[$,\\s]/g,""))}`);
-  if (v("hoa")) parts.push(`hoa ${Number(v("hoa").replace(/[$,\\s]/g,""))}`);
-  if (v("utils")) parts.push(`utilities ${Number(v("utils").replace(/[$,\\s]/g,""))}`);
-  if (v("other")) parts.push(`other ${Number(v("other").replace(/[$,\\s]/g,""))}`);
-  if (v("targetcap")) parts.push(`targetcap ${v("targetcap")}%`);
-
-  const overrides = parts.join("; ") || undefined;
-
   try{
-    const r = await fetch(API, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ address, purchasePrice, overrides }) });
+    const address = strVal("addr");
+    if(!address){ errBox.textContent="Please enter an address."; btn.disabled=false; btn.textContent="Generate"; return; }
+
+    // ALWAYS include every variable with the form’s value (defaults are prefilled)
+    const down = numVal("down") ?? 25;
+    const rate = numVal("rate") ?? 7.7;
+    const term = numVal("term") ?? 30;
+    const points = numVal("points") ?? 0;
+    const closing = numVal("closing") ?? 2;
+    const rehab = numVal("rehab") ?? 0;
+    const vacancy = numVal("vacancy") ?? 5;
+    const mgmt = document.getElementById("selfmgmt").checked ? 0 : (numVal("mgmt") ?? 8);
+    const maint = numVal("maint") ?? 8;
+    const taxes = numVal("taxes") ?? 0;
+    const ins = numVal("ins") ?? 0;
+    const hoa = numVal("hoa") ?? 0;
+    const utils = numVal("utils") ?? 0;
+    const other = numVal("other") ?? 0;
+    const targetcap = numVal("targetcap") ?? 8;
+    const isSelf = document.getElementById("selfmgmt").checked;
+
+    const overrides =
+      `${isSelf ? "self-managed; " : ""}` +
+      `down ${down}%; rate ${rate}%; term ${term}y; ` +
+      `points ${points}%; closing ${closing}%; rehab ${rehab}; ` +
+      `vacancy ${vacancy}%; management ${mgmt}%; maintenance ${maint}%; ` +
+      `taxes ${taxes}; insurance ${ins}; hoa ${hoa}; utilities ${utils}; other ${other}; ` +
+      `targetcap ${targetcap}%`;
+
+    const purchasePrice = numVal("price") ?? 0;
+
+    const r = await fetch(API, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ address, purchasePrice, overrides })
+    });
+
     const raw = await r.text();
     if (!r.ok) {
       const maybe = safeParseJSON(raw);
-      errBox.textContent = (maybe && maybe.error) ? maybe.error : `API error ${r.status}`;
+      errBox.textContent = (maybe && maybe.error) ? (maybe.error.message || maybe.error || raw) : `API error ${r.status}`;
+      if (DEBUG) console.error("API error:", raw);
       return;
     }
+
     const data = safeParseJSON(raw);
     if (!data || typeof data !== "object") { errBox.textContent = "API returned invalid format."; return; }
     const mapped = mapFromSchema(data);
     render(mapped);
   }catch(ex){
     errBox.textContent = String(ex?.message||ex);
+    if (DEBUG) console.error(ex);
   }finally{
     btn.disabled = false; btn.textContent = "Generate";
   }
@@ -411,5 +426,6 @@ document.getElementById("f").addEventListener("submit", async (e)=>{
 
 </body>
 </html>
+
 
 
