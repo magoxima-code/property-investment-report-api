@@ -1,10 +1,6 @@
 // /api/generate.js — Vercel Serverless Function (Node 18+, ESM)
-// Calls your published Prompt (pmpt_...) and returns a JSON object
-// shaped by property_investment_report_v1.
-//
-// Vercel → Project → Settings → Environment Variables (required):
-//   OPENAI_API_KEY   = your OpenAI API key
-//   OPENAI_PROMPT_ID = pmpt_... (published Prompt ID)
+// Uses your published Prompt (pmpt_...) + Responses API Structured Outputs (JSON Schema)
+// and returns a JSON object shaped like property_investment_report_v1.
 
 export default async function handler(req, res) {
   // CORS / preflight
@@ -15,7 +11,9 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Only POST" });
 
   const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-  const OPENAI_PROMPT_ID = process.env.OPENAI_PROMPT_ID;
+  const OPENAI_PROMPT_ID = process.env.OPENAI_PROMPT_ID; // pmpt_...
+  const MODEL = process.env.OPENAI_MODEL || "gpt-5-mini-2025-08-07";
+
   if (!OPENAI_API_KEY) return res.status(500).json({ error: "Missing OPENAI_API_KEY" });
   if (!OPENAI_PROMPT_ID) return res.status(500).json({ error: "Missing OPENAI_PROMPT_ID" });
 
@@ -37,24 +35,24 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "address is required" });
   }
 
-  // Build single-line input expected by your Prompt
+  // Build the single-line input your Prompt expects
   const priceStr = purchasePrice ? ` — $${purchasePrice}` : "";
   const extra = overrides ? ` ${String(overrides).trim()}` : "";
   const userInput = `${String(address).trim()}${priceStr}${extra}`;
 
   try {
-    // Responses API — use top-level `input` (no prompt variables)
     const r = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "gpt-5-thinking",
-        prompt: { id: OPENAI_PROMPT_ID },            // use latest version of your Prompt
-        input: userInput,                             // <— pass the string here
-        text: {                                       // JSON Schema structured output
+        model: MODEL,
+        prompt: { id: OPENAI_PROMPT_ID },   // use latest published version
+        input: userInput,                    // sending as top-level input (no prompt variables)
+        text: {
+          // JSON Schema Structured Outputs (flattened fields)
           format: {
             type: "json_schema",
             name: "property_investment_report_v1",
@@ -71,7 +69,7 @@ export default async function handler(req, res) {
     // With json_schema, output_parsed should already be the JS object
     let parsed = data.output_parsed;
 
-    // Defensive fallbacks
+    // Defensive fallbacks (in case the shape differs)
     if (!parsed && typeof data.output_text === "string") parsed = safeParseJSON(data.output_text);
     if (!parsed && Array.isArray(data.output)) {
       const firstText = data.output
@@ -96,7 +94,7 @@ function redactLarge(obj) {
   } catch { return { notice: "unable to serialize raw response" }; }
 }
 
-// ===== JSON Schema object (used by text.format) =====
+// ===== JSON Schema used by Structured Outputs =====
 const PROPERTY_REPORT_JSON_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -341,5 +339,4 @@ const PROPERTY_REPORT_JSON_SCHEMA = {
     }
   }
 };
-
 
