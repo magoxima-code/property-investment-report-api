@@ -1,4 +1,11 @@
 // /api/generate.js — Vercel Serverless Function (Node 18+, ESM)
+// Calls your published Prompt (pmpt_...) and returns a JSON object
+// shaped by property_investment_report_v1.
+//
+// Vercel → Project → Settings → Environment Variables (required):
+//   OPENAI_API_KEY   = your OpenAI API key
+//   OPENAI_PROMPT_ID = pmpt_... (published Prompt ID)
+
 export default async function handler(req, res) {
   // CORS / preflight
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -8,7 +15,7 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Only POST" });
 
   const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-  const OPENAI_PROMPT_ID = process.env.OPENAI_PROMPT_ID; // pmpt_...
+  const OPENAI_PROMPT_ID = process.env.OPENAI_PROMPT_ID;
   if (!OPENAI_API_KEY) return res.status(500).json({ error: "Missing OPENAI_API_KEY" });
   if (!OPENAI_PROMPT_ID) return res.status(500).json({ error: "Missing OPENAI_PROMPT_ID" });
 
@@ -30,32 +37,28 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "address is required" });
   }
 
-  // Build the single-line input your Prompt expects
+  // Build single-line input expected by your Prompt
   const priceStr = purchasePrice ? ` — $${purchasePrice}` : "";
   const extra = overrides ? ` ${String(overrides).trim()}` : "";
   const userInput = `${String(address).trim()}${priceStr}${extra}`;
 
   try {
-    // Responses API call — JSON Schema via text.format (flattened fields)
+    // Responses API — use top-level `input` (no prompt variables)
     const r = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
         model: "gpt-5-thinking",
-        prompt: {
-          id: OPENAI_PROMPT_ID,
-          version: "1",
-          // Your Prompt has a variable named {{input}}
-          variables: { input: userInput }
-        },
-        text: {
+        prompt: { id: OPENAI_PROMPT_ID },            // use latest version of your Prompt
+        input: userInput,                             // <— pass the string here
+        text: {                                       // JSON Schema structured output
           format: {
             type: "json_schema",
             name: "property_investment_report_v1",
-            strict: false,                 // set true only if every nested field is always present
+            strict: false,
             schema: PROPERTY_REPORT_JSON_SCHEMA
           }
         }
@@ -65,10 +68,10 @@ export default async function handler(req, res) {
     const data = await r.json();
     if (!r.ok) return res.status(r.status).json(data);
 
-    // With json_schema, output_parsed should be the JS object already
+    // With json_schema, output_parsed should already be the JS object
     let parsed = data.output_parsed;
 
-    // Defensive fallbacks in case the SDK/shape differs
+    // Defensive fallbacks
     if (!parsed && typeof data.output_text === "string") parsed = safeParseJSON(data.output_text);
     if (!parsed && Array.isArray(data.output)) {
       const firstText = data.output
@@ -93,7 +96,7 @@ function redactLarge(obj) {
   } catch { return { notice: "unable to serialize raw response" }; }
 }
 
-// ===== JSON Schema object (flattened into text.format) =====
+// ===== JSON Schema object (used by text.format) =====
 const PROPERTY_REPORT_JSON_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -209,7 +212,20 @@ const PROPERTY_REPORT_JSON_SCHEMA = {
     units: {
       type: "array",
       minItems: 1,
-      items: { $ref: "#/$defs/unit" }
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["name", "beds", "baths", "sqft", "modeledRentMonthly", "leaseTermMonths", "notes"],
+        properties: {
+          name: { type: "string" },
+          beds: { type: "number", minimum: 0 },
+          baths: { type: "number", minimum: 0 },
+          sqft: { type: ["number", "null"], minimum: 0 },
+          modeledRentMonthly: { type: ["number", "null"], minimum: 0 },
+          leaseTermMonths: { type: "integer", minimum: 1 },
+          notes: { type: "string" }
+        }
+      }
     },
     rents: {
       type: "object",
@@ -225,7 +241,19 @@ const PROPERTY_REPORT_JSON_SCHEMA = {
     rentComps: {
       type: "array",
       minItems: 5,
-      items: { $ref: "#/$defs/rentComp" }
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["address", "beds", "baths", "askingRent", "distanceMiles", "conditionNote"],
+        properties: {
+          address: { type: "string", minLength: 3 },
+          beds: { type: "number", minimum: 0 },
+          baths: { type: "number", minimum: 0 },
+          askingRent: { type: ["number", "null"], minimum: 0 },
+          distanceMiles: { type: ["number", "null"], minimum: 0 },
+          conditionNote: { type: "string" }
+        }
+      }
     },
     operatingAssumptions: {
       type: "object",
@@ -273,11 +301,11 @@ const PROPERTY_REPORT_JSON_SCHEMA = {
       additionalProperties: false,
       required: ["rentMinus10", "baseCase", "rentPlus10", "opExMinus10", "opExPlus10"],
       properties: {
-        rentMinus10: { $ref: "#/$defs/sensitivityCase" },
-        baseCase: { $ref: "#/$defs/sensitivityCase" },
-        rentPlus10: { $ref: "#/$defs/sensitivityCase" },
-        opExMinus10: { $ref: "#/$defs/sensitivityCase" },
-        opExPlus10: { $ref: "#/$defs/sensitivityCase" }
+        rentMinus10: { type: "object", additionalProperties: false, required: ["noiAnnual","capRatePct","dscr","cashFlowAnnual"], properties: { noiAnnual: {type:["number","null"]}, capRatePct:{type:["number","null"]}, dscr:{type:["number","null"]}, cashFlowAnnual:{type:["number","null"]} } },
+        baseCase:    { type: "object", additionalProperties: false, required: ["noiAnnual","capRatePct","dscr","cashFlowAnnual"], properties: { noiAnnual: {type:["number","null"]}, capRatePct:{type:["number","null"]}, dscr:{type:["number","null"]}, cashFlowAnnual:{type:["number","null"]} } },
+        rentPlus10:  { type: "object", additionalProperties: false, required: ["noiAnnual","capRatePct","dscr","cashFlowAnnual"], properties: { noiAnnual: {type:["number","null"]}, capRatePct:{type:["number","null"]}, dscr:{type:["number","null"]}, cashFlowAnnual:{type:["number","null"]} } },
+        opExMinus10: { type: "object", additionalProperties: false, required: ["noiAnnual","capRatePct","dscr","cashFlowAnnual"], properties: { noiAnnual: {type:["number","null"]}, capRatePct:{type:["number","null"]}, dscr:{type:["number","null"]}, cashFlowAnnual:{type:["number","null"]} } },
+        opExPlus10:  { type: "object", additionalProperties: false, required: ["noiAnnual","capRatePct","dscr","cashFlowAnnual"], properties: { noiAnnual: {type:["number","null"]}, capRatePct:{type:["number","null"]}, dscr:{type:["number","null"]}, cashFlowAnnual:{type:["number","null"]} } }
       }
     },
     negotiation: {
@@ -310,47 +338,8 @@ const PROPERTY_REPORT_JSON_SCHEMA = {
         DSCR: { type: "string" },
         CoC: { type: "string" }
       }
-    },
-    $defs: {
-      unit: {
-        type: "object",
-        additionalProperties: false,
-        required: ["name", "beds", "baths", "sqft", "modeledRentMonthly", "leaseTermMonths", "notes"],
-        properties: {
-          name: { type: "string" },
-          beds: { type: "number", minimum: 0 },
-          baths: { type: "number", minimum: 0 },
-          sqft: { type: ["number", "null"], minimum: 0 },
-          modeledRentMonthly: { type: ["number", "null"], minimum: 0 },
-          leaseTermMonths: { type: "integer", minimum: 1 },
-          notes: { type: "string" }
-        }
-      },
-      rentComp: {
-        type: "object",
-        additionalProperties: false,
-        required: ["address", "beds", "baths", "askingRent", "distanceMiles", "conditionNote"],
-        properties: {
-          address: { type: "string", minLength: 3 },
-          beds: { type: "number", minimum: 0 },
-          baths: { type: "number", minimum: 0 },
-          askingRent: { type: ["number", "null"], minimum: 0 },
-          distanceMiles: { type: ["number", "null"], minimum: 0 },
-          conditionNote: { type: "string" }
-        }
-      },
-      sensitivityCase: {
-        type: "object",
-        additionalProperties: false,
-        required: ["noiAnnual", "capRatePct", "dscr", "cashFlowAnnual"],
-        properties: {
-          noiAnnual: { type: ["number", "null"] },
-          capRatePct: { type: ["number", "null"] },
-          dscr: { type: ["number", "null"] },
-          cashFlowAnnual: { type: ["number", "null"] }
-        }
-      }
     }
   }
 };
+
 
