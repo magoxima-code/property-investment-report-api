@@ -31,6 +31,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         prompt: { id: process.env.OPENAI_PROMPT_ID, version: "1" },
+        response_format: { type: "json_object" },
         input: userInput
       }),
     });
