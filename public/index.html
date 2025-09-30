@@ -8,66 +8,109 @@
   :root{--indigo:#4f46e5;--slate:#0f172a;--muted:#475569;--line:#e2e8f0;--green:#16a34a;--bg:#f8fafc}
   *{box-sizing:border-box}
   body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--slate);margin:0;padding:24px}
-  .container{max-width:1200px;margin:auto;display:grid;grid-template-columns:360px 1fr;gap:24px}
-  .card{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+  .container{max-width:1400px;margin:auto;display:block}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 1px 4px rgba(0,0,0,.04);margin-bottom:18px}
   .pad{padding:16px}
   h1{font-size:22px;margin:0 0 12px}
   h2{font-size:20px;margin:16px 0 10px}
   h3{font-size:16px;margin:0 0 8px;color:#0f172a}
   label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
-  input{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px}
-  button{background:var(--indigo);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-size:14px;cursor:pointer}
-  button:disabled{opacity:.6;cursor:not-allowed}
+  input,select{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px}
   .row{display:flex;gap:12px;align-items:center;justify-content:space-between}
   .muted{color:#64748b;font-size:12px}
   .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
   .metric{border:1px solid var(--line);border-radius:12px;padding:12px}
-  .metric .lbl{font-size:12px;color:#64748b}
-  .metric .val{font-size:20px;font-weight:600}
-  table{width:100%;border-collapse:collapse;font-size:14px}
-  th,td{padding:8px;border-bottom:1px solid var(--line);text-align:left}
+  .metric .lbl{font-size:12px;color:#64748b}.metric .val{font-size:20px;font-weight:600}
+  table{width:100%;border-collapse:collapse;font-size:14px} th,td{padding:8px;border-bottom:1px solid var(--line);text-align:left}
   th{color:#64748b;font-weight:600}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-  .pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:6px 10px;font-size:12px;color:#334155;background:#f9fafb}
-  .print{background:var(--green)}
-  @media (max-width:1024px){.container{grid-template-columns:1fr}}
+  .btn{background:var(--indigo);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-size:14px;cursor:pointer}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+  .btn.print{background:var(--green)}
+  details{border:1px dashed var(--line);border-radius:12px;padding:10px}
+  details summary{cursor:pointer;font-weight:600}
+  .cols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+  .cols3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  @media (max-width:1024px){
+    .metrics{grid-template-columns:repeat(2,1fr)}
+    .cols,.cols3{grid-template-columns:1fr 1fr}
+  }
+  @media (max-width:640px){
+    .metrics{grid-template-columns:1fr}
+    .cols,.cols3{grid-template-columns:1fr}
+  }
   @media print{
     body{padding:0;background:#fff}
-    .container{display:block;max-width:none}
     .card{border:0;box-shadow:none}
     .no-print{display:none!important}
-    .page-break{page-break-before:always}
   }
 </style>
 </head>
 <body>
 
 <div class="container">
-  <!-- Left: Form -->
+
+  <!-- TOP: INPUT FORM -->
   <div class="card pad no-print">
     <h1>Property Report Builder</h1>
     <form id="f">
       <label>Property Address</label>
       <input id="addr" placeholder="111/113 Cultural Park Blvd S, Cape Coral, FL 33990" required />
-      <label>Purchase Price (USD)</label>
-      <input id="price" placeholder="500000" />
-      <label>Overrides (optional)</label>
-      <input id="over" placeholder="self-managed; rate 7.6%; down 25%" />
-      <div style="display:flex;gap:8px;margin-top:12px">
-        <button id="go" type="submit">Generate</button>
-        <button type="button" class="print" onclick="window.print()">Download / Print PDF</button>
+
+      <div class="cols3" style="margin-top:10px">
+        <div>
+          <label>Purchase Price (USD)</label>
+          <input id="price" placeholder="500000" />
+        </div>
+        <div>
+          <label>Target Cap % (optional, default 8%)</label>
+          <input id="targetcap" placeholder="8" />
+        </div>
+        <div style="display:flex;align-items:flex-end">
+          <button id="go" class="btn" type="submit" style="width:100%">Generate</button>
+        </div>
       </div>
-      <div id="err" class="muted" style="min-height:18px;margin-top:6px"></div>
+
+      <details style="margin-top:12px">
+        <summary>Advanced underwriting inputs (optional)</summary>
+        <div class="cols" style="margin-top:10px">
+          <div><label>Down %</label><input id="down" placeholder="25"/></div>
+          <div><label>Rate % (annual)</label><input id="rate" placeholder="7.7"/></div>
+          <div><label>Term (years)</label><input id="term" placeholder="30"/></div>
+          <div><label>Points %</label><input id="points" placeholder="0"/></div>
+          <div><label>Closing %</label><input id="closing" placeholder="2"/></div>
+          <div><label>Rehab ($)</label><input id="rehab" placeholder="0"/></div>
+          <div><label>Vacancy %</label><input id="vacancy" placeholder="5"/></div>
+          <div><label>Management % of EGI</label><input id="mgmt" placeholder="8"/></div>
+          <div><label>Maintenance % of Gross</label><input id="maint" placeholder="8"/></div>
+          <div><label>Taxes ($/yr)</label><input id="taxes" placeholder="0"/></div>
+          <div><label>Insurance ($/yr)</label><input id="ins" placeholder="0"/></div>
+          <div><label>HOA ($/yr)</label><input id="hoa" placeholder="0"/></div>
+          <div><label>Utilities ($/yr)</label><input id="utils" placeholder="0"/></div>
+          <div><label>Other OpEx ($/yr)</label><input id="other" placeholder="0"/></div>
+        </div>
+        <div style="margin-top:10px">
+          <label style="display:flex;gap:8px;align-items:center">
+            <input type="checkbox" id="selfmgmt"/> Self-managed (sets management to 0%)
+          </label>
+        </div>
+      </details>
+
+      <div class="muted" style="margin-top:10px">Defaults used when a field is empty: down 25%, rate 7.70%, term 30y, vacancy 5%, management 8% (or 0% if self-managed), maintenance 8%, taxes 0, insurance 0, HOA 0, utilities 0, other 0, closing 2%, points 0%, rehab 0, target cap 8%.</div>
+      <div class="row" style="margin-top:10px">
+        <div class="muted" id="err" style="min-height:18px"></div>
+        <button type="button" class="btn print" onclick="window.print()">Download / Print PDF</button>
+      </div>
     </form>
-    <div class="muted" style="margin-top:12px">Tip: use “self-managed”, “down 30%”, “rate 7.5%”, “points 1%”, “closing 3%”, “rehab 20k”.</div>
   </div>
 
-  <!-- Right: Report -->
+  <!-- REPORT -->
   <div class="card pad" id="reportEmpty">
     <div class="muted">The full report will render here after you click <b>Generate</b>.</div>
   </div>
   <div class="card pad" id="report" style="display:none"></div>
+
 </div>
 
 <script>
@@ -91,19 +134,13 @@ function mapFromSchema(x){
     : [{ name:"Subject Unit", rent: x.rents?.modeledMarketRentMonthly ?? 0 }];
 
   const comps = Array.isArray(x.rentComps)? x.rentComps.map(c=>({
-    address: c.address,
-    beds: `${c.beds}/${c.baths}`,
-    rent: c.askingRent ?? 0,
-    dist: c.distanceMiles ?? null,
-    condition: c.conditionNote || ""
+    address: c.address, beds: `${c.beds}/${c.baths}`,
+    rent: c.askingRent ?? 0, dist: c.distanceMiles ?? null, condition: c.conditionNote || ""
   })) : [];
 
   return {
-    // labels
     address: clean(x?.subject?.address),
     prepared: new Date().toLocaleDateString(),
-
-    // snapshot
     snapshot: {
       propertyType: clean(x?.propertySnapshot?.propertyType),
       unitMix: clean(x?.propertySnapshot?.unitMix),
@@ -112,45 +149,29 @@ function mapFromSchema(x){
       livingSqft: x?.propertySnapshot?.livingSqft ?? null,
       yearBuilt: x?.propertySnapshot?.yearBuilt ?? null,
       lotSizeSqft: x?.propertySnapshot?.lotSizeSqft ?? null,
-      hoa: {
-        has: !!x?.propertySnapshot?.hoa?.hasHoa,
-        annual: x?.propertySnapshot?.hoa?.annual ?? 0,
-        name: clean(x?.propertySnapshot?.hoa?.name),
-        notes: clean(x?.propertySnapshot?.hoa?.notes),
-      },
+      hoa: { has: !!x?.propertySnapshot?.hoa?.hasHoa, annual: x?.propertySnapshot?.hoa?.annual ?? 0, name: clean(x?.propertySnapshot?.hoa?.name), notes: clean(x?.propertySnapshot?.hoa?.notes) },
       taxesAnnual: x?.propertySnapshot?.taxes?.annual ?? 0,
       taxesYear: x?.propertySnapshot?.taxes?.year ?? null,
       insAnnual: x?.propertySnapshot?.insurance?.dp3Annual ?? 0
     },
-
-    // purchase & costs
     purchasePrice: x?.purchase?.purchasePrice ?? 0,
     closingPct: x?.purchase?.closingCostPct ?? 0.02,
     pointsPctOfPrice: x?.purchase?.pointsPct ?? 0,
     rehabBudget: x?.purchase?.rehabBudget ?? 0,
-
-    // ops
     vacancyRate: pctToDec(x?.operatingAssumptions?.vacancyPct, 0.05),
     maintPctOfGross: pctToDec(x?.operatingAssumptions?.maintenancePctOfGrossRent, 0.08),
     mgmtPctOfEGI: pctToDec(x?.operatingAssumptions?.managementPctOfEGI, 0.08),
     utilsLL: x?.operatingAssumptions?.utilitiesLandlordPaidAnnual ?? 0,
     otherOpEx: x?.operatingAssumptions?.otherOpExAnnual ?? 0,
     selfManaged: !!x?.operatingAssumptions?.selfManaged,
-
-    // financing
     fin: {
       downPct: pctToDec(x?.financing?.downPaymentPct, 0.25),
       rateAnnual: pctToDec(x?.financing?.rateAnnualPct, 0.077),
       termMonths: yearsToMonths(x?.financing?.termYears, 30)
     },
-
-    // rents & comps
-    units,
-    comps,
+    units, comps,
     rentBenchmark: x?.rents?.benchmarkMedian ?? null,
     modeledRent: x?.rents?.modeledMarketRentMonthly ?? (units[0]?.rent ?? null),
-
-    // negotiation target
     targetCap: x?.reportMeta?.targetCapPct ? x.reportMeta.targetCapPct/100 : 0.08
   };
 }
@@ -161,56 +182,38 @@ function compute(d){
   const annualGSR = monthlyRent*12;
   const vacancy = annualGSR*d.vacancyRate;
   const egi = annualGSR - vacancy;
-
   const maintenance = annualGSR*d.maintPctOfGross;
   const management = egi*d.mgmtPctOfEGI * (d.selfManaged ? 0 : 1);
-
   const taxes = d.snapshot.taxesAnnual;
   const insurance = d.snapshot.insAnnual;
   const hoa = d.snapshot.hoa.annual || 0;
   const opEx = taxes + insurance + hoa + maintenance + management + d.utilsLL + d.otherOpEx;
-
   const noi = egi - opEx;
   const closing = d.purchasePrice * d.closingPct;
   const pointsCost = d.purchasePrice * d.pointsPctOfPrice;
-  const totalCost = d.purchasePrice + closing; // (points excluded from asset basis for cap in this model)
-
+  const totalCost = d.purchasePrice + closing;
   const loanAmount = d.purchasePrice * (1 - d.fin.downPct);
-  const r = d.fin.rateAnnual/12;
-  const n = d.fin.termMonths;
+  const r = d.fin.rateAnnual/12, n = d.fin.termMonths;
   const monthlyPI = (loanAmount>0 && r>0) ? (loanAmount*r)/(1-Math.pow(1+r,-n)) : 0;
   const ads = monthlyPI*12;
   const dscr = ads ? (noi/ads) : 0;
-
   const cashInvested = d.purchasePrice*d.fin.downPct + closing + pointsCost + d.rehabBudget;
   const cashFlow = noi - ads;
   const cap = totalCost ? (noi/totalCost) : 0;
-  const onePctRule = d.purchasePrice>0 ? ( (monthlyRent/d.purchasePrice) ) : 0;
+  const onePctRule = d.purchasePrice>0 ? (monthlyRent/d.purchasePrice) : 0;
 
-  // sensitivity
   const sens = (rentMult=1, opExMult=1)=>{
-    const gsr = annualGSR*rentMult;
-    const vac = gsr*d.vacancyRate;
-    const e = gsr - vac;
-    const maint = gsr*d.maintPctOfGross;
-    const mgmt = e*d.mgmtPctOfEGI*(d.selfManaged?0:1);
+    const gsr = annualGSR*rentMult, vac = gsr*d.vacancyRate, e = gsr-vac;
+    const maint = gsr*d.maintPctOfGross, mgmt = e*d.mgmtPctOfEGI*(d.selfManaged?0:1);
     const opex = (taxes+insurance+hoa+d.utilsLL+d.otherOpEx)*opExMult + maint + mgmt;
-    const n_ = e - opex;
-    const cap_ = totalCost ? (n_/totalCost) : 0;
-    const dscr_ = ads ? (n_/ads) : 0;
-    const cf_ = n_ - ads;
+    const n_ = e-opex, cap_ = totalCost?(n_/totalCost):0, dscr_=ads?(n_/ads):0, cf_=n_-ads;
     return { noi:n_, capRate:cap_, dscr:dscr_, cashFlow:cf_ };
   };
 
-  // negotiation: max price at target cap (includes closing + points load)
   const loaded = 1 + d.closingPct + d.pointsPctOfPrice;
   const maxPurchaseAtTargetCap = d.targetCap>0 ? (noi / d.targetCap) / loaded : null;
 
-  return {
-    monthlyRent, annualGSR, vacancy, egi, maintenance, management, opEx, noi,
-    closing, pointsCost, totalCost, loanAmount, monthlyPI, ads, dscr, cashInvested,
-    cashFlow, cap, onePctRule, sens, maxPurchaseAtTargetCap
-  };
+  return { monthlyRent, annualGSR, vacancy, egi, maintenance, management, opEx, noi, closing, pointsCost, totalCost, loanAmount, monthlyPI, ads, dscr, cashInvested, cashFlow, cap, onePctRule, sens, maxPurchaseAtTargetCap };
 }
 
 /* ---------- Render ---------- */
@@ -223,7 +226,7 @@ function render(d){
         <h1>Investment Report — ${d.address}</h1>
         <div class="muted">Prepared: ${d.prepared}</div>
       </div>
-      <button class="print no-print" onclick="window.print()">Download / Print PDF</button>
+      <button class="btn print no-print" onclick="window.print()">Download / Print PDF</button>
     </div>
 
     <div class="metrics" style="margin-top:12px">
@@ -257,7 +260,7 @@ function render(d){
       <h2>Rental Comps</h2>
       <div class="muted">Plain text only (no links).</div>
       ${table([["Address","Bed/Bath","Rent","Distance","Condition"]],
-        d.comps.map(c=>[c.address, c.beds, fmtUSD(c.rent), c.dist==null?"-":`${Number(c.dist).toFixed(1)} mi`, c.condition||""]))}
+        d.comps.map(c=>[c.address, c.beds, fmtUSD(c.rent), c.dist==null?"-":\`\${Number(c.dist).toFixed(1)} mi\`, c.condition||""]))}
     `: ""}
 
     <h2>Income & Expenses</h2>
@@ -291,7 +294,7 @@ function render(d){
     ${table([], [
       ["Down Payment", pct(d.fin.downPct)],
       ["Rate (annual)", pct(d.fin.rateAnnual)],
-      ["Term", `${d.fin.termMonths} mo`],
+      ["Term", \`\${d.fin.termMonths} mo\`],
       ["Loan Amount", fmtUSD(c.loanAmount)],
       ["Monthly P&I", fmtUSD(c.monthlyPI)],
       ["Annual Debt Service", fmtUSD(c.ads)],
@@ -344,17 +347,16 @@ function render(d){
 function metric(label,val){ return `<div class="metric"><div class="lbl">${label}</div><div class="val">${val}</div></div>`; }
 function mini(label,val){ return `<div class="card pad"><div class="lbl muted" style="margin-bottom:4px">${label}</div><div>${val||"-"}</div></div>`; }
 function table(headers, rows){
-  const thead = headers && headers.length
-    ? `<thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead>` : "";
+  const thead = headers && headers.length ? `<thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead>` : "";
   const body = rows.map(r=>{
-    const bold = r[2]===true; // allow 3rd arg flag on some rows above
+    const bold = r[2]===true;
     const cells = r.map((c,i)=> i===2 && c===true ? "" : `<td${bold?" style='font-weight:600'":""}>${c}</td>`).join("");
     return `<tr>${cells}</tr>`;
   }).join("");
   return `<table>${thead}<tbody>${body}</tbody></table>`;
 }
 
-/* ---------- Wire up form ---------- */
+/* ---------- Build overrides & submit ---------- */
 const errBox = document.getElementById("err");
 const btn = document.getElementById("go");
 document.getElementById("f").addEventListener("submit", async (e)=>{
@@ -363,7 +365,29 @@ document.getElementById("f").addEventListener("submit", async (e)=>{
 
   const address = document.getElementById("addr").value.trim();
   const purchasePrice = Number((document.getElementById("price").value||"").replace(/[$,\\s]/g,"")) || undefined;
-  const overrides = document.getElementById("over").value.trim() || undefined;
+
+  // Build overrides string from advanced inputs (add only if user filled)
+  const parts = [];
+  const v = id => document.getElementById(id).value.trim();
+
+  if (document.getElementById("selfmgmt").checked) parts.push("self-managed");
+  if (v("down")) parts.push(`down ${v("down")}%`);
+  if (v("rate")) parts.push(`rate ${v("rate")}%`);
+  if (v("term")) parts.push(`term ${v("term")}y`);
+  if (v("points")) parts.push(`points ${v("points")}%`);
+  if (v("closing")) parts.push(`closing ${v("closing")}%`);
+  if (v("rehab")) parts.push(`rehab ${Number(v("rehab").replace(/[$,\\s]/g,""))}`);
+  if (v("vacancy")) parts.push(`vacancy ${v("vacancy")}%`);
+  if (v("mgmt")) parts.push(`management ${v("mgmt")}%`);
+  if (v("maint")) parts.push(`maintenance ${v("maint")}%`);
+  if (v("taxes")) parts.push(`taxes ${Number(v("taxes").replace(/[$,\\s]/g,""))}`);
+  if (v("ins")) parts.push(`insurance ${Number(v("ins").replace(/[$,\\s]/g,""))}`);
+  if (v("hoa")) parts.push(`hoa ${Number(v("hoa").replace(/[$,\\s]/g,""))}`);
+  if (v("utils")) parts.push(`utilities ${Number(v("utils").replace(/[$,\\s]/g,""))}`);
+  if (v("other")) parts.push(`other ${Number(v("other").replace(/[$,\\s]/g,""))}`);
+  if (v("targetcap")) parts.push(`targetcap ${v("targetcap")}%`);
+
+  const overrides = parts.join("; ") || undefined;
 
   try{
     const r = await fetch(API, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ address, purchasePrice, overrides }) });
@@ -387,4 +411,5 @@ document.getElementById("f").addEventListener("submit", async (e)=>{
 
 </body>
 </html>
+
 
