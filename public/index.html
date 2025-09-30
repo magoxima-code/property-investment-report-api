@@ -1,43 +1,235 @@
-<!doctype html><html lang="en"><head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Property Report Builder</title>
 <style>
- body{font-family:system-ui,Arial,sans-serif;background:#f8fafc;color:#0f172a;padding:24px}
- .card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;max-width:720px;margin:auto;box-shadow:0 1px 4px rgba(0,0,0,.04)}
- label{font-size:12px;color:#475569;display:block;margin:10px 0 4px}
- input,button{font-size:14px} input{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:10px}
- button{margin-top:12px;background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:10px 14px;cursor:pointer}
- pre{background:#0b1220;color:#d1e3ff;padding:12px;border-radius:10px;overflow:auto}
-</style></head><body>
-<div class="card">
-  <h2>Property Report Builder</h2>
-  <form id="f">
-    <label>Property Address</label>
-    <input id="addr" placeholder="111/113 Cultural Park Blvd S, Cape Coral, FL 33990" required />
-    <label>Purchase Price (USD)</label>
-    <input id="price" placeholder="500000" />
-    <label>Overrides (optional)</label>
-    <input id="over" placeholder="self-managed; rate 7.6%; down 25%" />
-    <button type="submit">Generate</button>
-  </form>
-  <h3>Response</h3>
-  <pre id="out">(waiting)</pre>
+  :root{--indigo:#4f46e5;--slate:#0f172a;--muted:#475569;--line:#e2e8f0}
+  *{box-sizing:border-box} body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f8fafc;color:var(--slate);margin:0;padding:24px}
+  .container{max-width:1120px;margin:auto;display:grid;grid-template-columns:340px 1fr;gap:24px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+  .pad{padding:16px}
+  h1{font-size:22px;margin:0 0 12px}
+  label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
+  input{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px}
+  button{background:var(--indigo);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-size:14px;cursor:pointer}
+  button:disabled{opacity:.6;cursor:not-allowed}
+  .muted{color:#64748b;font-size:12px}
+  .grid{display:grid;gap:12px}
+  .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  .metric{border:1px solid var(--line);border-radius:12px;padding:12px}
+  .metric .lbl{font-size:12px;color:#64748b} .metric .val{font-size:20px;font-weight:600}
+  table{width:100%;border-collapse:collapse;font-size:14px} th,td{padding:8px;border-bottom:1px solid var(--line)} th{color:#64748b;text-align:left}
+  .row{display:flex;gap:12px;align-items:center;justify-content:space-between}
+  .print{background:#16a34a}
+  @media (max-width:960px){.container{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Left: Form -->
+  <div class="card pad">
+    <h1>Property Report Builder</h1>
+    <form id="f" class="grid">
+      <div>
+        <label>Property Address</label>
+        <input id="addr" placeholder="111/113 Cultural Park Blvd S, Cape Coral, FL 33990" required />
+      </div>
+      <div>
+        <label>Purchase Price (USD)</label>
+        <input id="price" placeholder="500000" />
+      </div>
+      <div>
+        <label>Overrides (optional)</label>
+        <input id="over" placeholder="self-managed; rate 7.6%; down 25%" />
+      </div>
+      <button id="go" type="submit">Generate</button>
+      <div id="err" class="muted"></div>
+    </form>
+  </div>
+
+  <!-- Right: Report -->
+  <div class="card pad" id="reportEmpty">
+    <div class="muted">The report will render here after you click <b>Generate</b>.</div>
+  </div>
+  <div class="card pad" id="report" style="display:none"></div>
 </div>
+
 <script>
-document.getElementById('f').addEventListener('submit', async (e) => {
+const API = "/api/generate";
+
+// ---- Helpers ---------------------------------------------------------------
+const fmtUSD = n => (n==null||isNaN(n)) ? "-" :
+  Number(n).toLocaleString(undefined,{style:"currency",currency:"USD",maximumFractionDigits:0});
+const pct = n => ((n||0)*100).toFixed(2)+"%";
+const sum = a => a.reduce((s,x)=>s+(x||0),0);
+
+function mapFromSchema(x){
+  const pctToDec = (n,def=0)=> typeof n==="number"? n/100 : def;
+  const yearsToMonths = (y,def=30)=> typeof y==="number"? y*12 : def*12;
+  const units = Array.isArray(x.units)&&x.units.length? x.units.map(u=>({ name: u.name, rent: u.modeledRentMonthly ?? 0 })) : [{ name:"Unit A", rent:0 }];
+  const comps = Array.isArray(x.rentComps)? x.rentComps.map(c=>({ label: c.address, rent: c.askingRent ?? 0, beds: `${c.beds}/${c.baths}`, dist: c.distanceMiles ?? 0, condition: c.conditionNote })) : [];
+  return {
+    address: x.subject?.address ?? "",
+    purchasePrice: x.purchase?.purchasePrice ?? 0,
+    closingPct: x.purchase?.closingCostPct ?? 0.02,
+    pointsOnLoanPctOfPrice: x.purchase?.pointsPct ?? 0,
+    vacancyRate: pctToDec(x.operatingAssumptions?.vacancyPct, 0.05),
+    maintPctOfGrossRent: pctToDec(x.operatingAssumptions?.maintenancePctOfGrossRent, 0.08),
+    mgmtPctOfEGI: pctToDec(x.operatingAssumptions?.managementPctOfEGI, 0.08),
+    insuranceAnnual: x.propertySnapshot?.insurance?.dp3Annual ?? 0,
+    taxesAnnual: x.propertySnapshot?.taxes?.annual ?? 0,
+    hoaAnnual: x.propertySnapshot?.hoa?.annual ?? 0,
+    utilsAnnualLL: x.operatingAssumptions?.utilitiesLandlordPaidAnnual ?? 0,
+    otherAnnual: x.operatingAssumptions?.otherOpExAnnual ?? 0,
+    units,
+    financing: {
+      downPct: pctToDec(x.financing?.downPaymentPct, 0.25),
+      rateAnnual: pctToDec(x.financing?.rateAnnualPct, 0.077),
+      termMonths: yearsToMonths(x.financing?.termYears, 30),
+    },
+    comps
+  };
+}
+
+function withDefaults(x){
+  return {
+    address: x.address || "",
+    purchasePrice: x.purchasePrice ?? 0,
+    closingPct: x.closingPct ?? 0.03,
+    pointsOnLoanPctOfPrice: x.pointsOnLoanPctOfPrice ?? 0.0075,
+    vacancyRate: x.vacancyRate ?? 0.05,
+    maintPctOfGrossRent: x.maintPctOfGrossRent ?? 0.08,
+    mgmtPctOfEGI: x.mgmtPctOfEGI ?? 0.08,
+    insuranceAnnual: x.insuranceAnnual ?? 0,
+    taxesAnnual: x.taxesAnnual ?? 0,
+    otherAnnual: x.otherAnnual ?? 0,
+    hoaAnnual: x.hoaAnnual ?? 0,
+    utilsAnnualLL: x.utilsAnnualLL ?? 0,
+    units: Array.isArray(x.units)&&x.units.length? x.units : [{ name:"Unit A", rent:0 }],
+    financing: { downPct: x.financing?.downPct ?? 0.25, rateAnnual: x.financing?.rateAnnual ?? 0.077, termMonths: x.financing?.termMonths ?? 360 },
+    comps: x.comps ?? [],
+  };
+}
+
+function renderReport(data){
+  const d = withDefaults(data);
+  const monthlyRent = sum(d.units.map(u=>u.rent));
+  const annualGSR = monthlyRent*12;
+  const vacancy = annualGSR*d.vacancyRate;
+  const egi = annualGSR - vacancy;
+  const maint = annualGSR*d.maintPctOfGrossRent;
+  const mgmt = egi*d.mgmtPctOfEGI;
+  const opEx = d.taxesAnnual + d.insuranceAnnual + d.hoaAnnual + maint + mgmt + d.utilsAnnualLL + d.otherAnnual;
+  const noi = egi - opEx;
+  const closingCost = d.purchasePrice * d.closingPct;
+  const totalCost = d.purchasePrice + closingCost;
+  const loanAmount = d.purchasePrice * (1 - d.financing.downPct);
+  const r = d.financing.rateAnnual/12;
+  const n = d.financing.termMonths;
+  const monthlyPI = (loanAmount>0 && r>0) ? (loanAmount*r)/(1-Math.pow(1+r,-n)) : 0;
+  const annualDebtService = monthlyPI*12;
+  const dscr = annualDebtService ? (noi/annualDebtService) : 0;
+  const pointsCost = d.purchasePrice * d.pointsOnLoanPctOfPrice;
+  const cashInvested = d.purchasePrice*d.financing.downPct + closingCost + pointsCost;
+  const cashFlow = noi - annualDebtService;
+  const capRate = totalCost ? (noi/totalCost) : 0;
+
+  const el = document.getElementById("report");
+  el.innerHTML = `
+    <div class="row">
+      <div>
+        <h1>Investment Report — ${d.address}</h1>
+        <div class="muted">Prepared: ${new Date().toLocaleDateString()}</div>
+      </div>
+      <button class="print" onclick="window.print()">Download / Print PDF</button>
+    </div>
+
+    <div class="metrics" style="margin-top:12px">
+      ${metric("Purchase Price", fmtUSD(d.purchasePrice))}
+      ${metric("NOI (yr)", fmtUSD(noi))}
+      ${metric("Cap Rate", pct(capRate))}
+      ${metric("Monthly P&I", fmtUSD(monthlyPI))}
+      ${metric("DSCR", (dscr||0).toFixed(2)+"×")}
+      ${metric("Cash Flow (yr)", fmtUSD(cashFlow))}
+      ${metric("Total Cost", fmtUSD(totalCost))}
+      ${metric("Modeled Rent (Total)", fmtUSD(monthlyRent)+"/mo")}
+    </div>
+
+    <h2 style="margin-top:18px">Income & Expenses</h2>
+    <div class="grid">
+      <div class="card pad">
+        <h3 class="muted" style="margin:0 0 8px">Income (Annual)</h3>
+        ${table([
+          ["Gross Scheduled Rent", fmtUSD(annualGSR)],
+          ["Less Vacancy", fmtUSD(vacancy)],
+          ["Effective Gross Income (EGI)", fmtUSD(egi), true],
+        ])}
+      </div>
+      <div class="card pad">
+        <h3 class="muted" style="margin:0 0 8px">Operating Expenses (Annual)</h3>
+        ${table([
+          ["Property Taxes", fmtUSD(d.taxesAnnual)],
+          ["Insurance (est.)", fmtUSD(d.insuranceAnnual)],
+          ["Maintenance", fmtUSD(maint)],
+          ["Management", fmtUSD(mgmt)],
+          ["Utilities (LL-paid)", fmtUSD(d.utilsAnnualLL)],
+          ["Other", fmtUSD(d.otherAnnual)],
+          ["Total OpEx", fmtUSD(opEx), true],
+        ])}
+      </div>
+    </div>
+
+    <h2 style="margin-top:18px">Units & Rents</h2>
+    ${unitsTable(d.units)}
+
+    ${d.comps?.length ? `
+      <h2 style="margin-top:18px">Rental Comps</h2>
+      ${compsTable(d.comps)}
+    ` : ""}
+
+    <div class="muted" style="margin-top:18px">For underwriting/education only. Not legal, tax, or financial advice.</div>
+  `;
+  document.getElementById("reportEmpty").style.display="none";
+  el.style.display="block";
+}
+
+function metric(label,val){ return `<div class="metric"><div class="lbl">${label}</div><div class="val">${val}</div></div>`; }
+function table(rows){ return `<table><tbody>${
+  rows.map(r=>`<tr${r[2]?' style="font-weight:600"':''}><td>${r[0]}</td><td style="text-align:right">${r[1]}</td></tr>`).join("")
+}</tbody></table>`; }
+function unitsTable(units){ return `<table><thead><tr><th>Unit</th><th style="text-align:right">Rent</th></tr></thead><tbody>${
+  units.map(u=>`<tr><td>${u.name}</td><td style="text-align:right">${fmtUSD(u.rent)}/mo</td></tr>`).join("")
+}</tbody></table>`; }
+function compsTable(cs){ return `<table><thead><tr><th>Address</th><th>Bed/Bath</th><th style="text-align:right">Rent</th><th style="text-align:right">Dist</th><th>Notes</th></tr></thead><tbody>${
+  cs.map(c=>`<tr><td>${c.label}</td><td>${c.beds}</td><td style="text-align:right">${fmtUSD(c.rent)}</td><td style="text-align:right">${(c.dist??0).toFixed? c.dist.toFixed(1)+' mi': c.dist}</td><td>${c.condition||""}</td></tr>`).join("")
+}</tbody></table>`; }
+
+// ---- Form ----------------------------------------------------------
+const errBox = document.getElementById("err");
+const btn = document.getElementById("go");
+document.getElementById("f").addEventListener("submit", async (e)=>{
   e.preventDefault();
-  const address = document.getElementById('addr').value.trim();
-  const purchasePrice = Number((document.getElementById('price').value||'').replace(/[$,\s]/g,'')) || undefined;
-  const overrides = document.getElementById('over').value.trim() || undefined;
-  const out = document.getElementById('out'); out.textContent='Loading...';
-  try {
-    const r = await fetch('/api/generate', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ address, purchasePrice, overrides })
-    });
+  errBox.textContent=""; btn.disabled = true; btn.textContent = "Generating…";
+  const address = document.getElementById("addr").value.trim();
+  const purchasePrice = Number((document.getElementById("price").value||"").replace(/[$,\\s]/g,"")) || undefined;
+  const overrides = document.getElementById("over").value.trim() || undefined;
+
+  try{
+    const r = await fetch(API, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ address, purchasePrice, overrides }) });
     const data = await r.json();
-    out.textContent = JSON.stringify(data, null, 2);
-  } catch (err) { out.textContent = String(err); }
+    if(!r.ok){ errBox.textContent = data?.error || `API error ${r.status}`; return; }
+    const mapped = mapFromSchema(data);
+    renderReport(mapped);
+  }catch(ex){
+    errBox.textContent = String(ex?.message||ex);
+  }finally{
+    btn.disabled = false; btn.textContent = "Generate";
+  }
 });
 </script>
-</body></html>
+
+</body>
+</html>
