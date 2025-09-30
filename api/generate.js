@@ -5,8 +5,7 @@
 //   OPENAI_API_KEY   = your OpenAI API key
 //   OPENAI_PROMPT_ID = pmpt_... from “Your prompt was published”
 //
-// This endpoint expects: { address, purchasePrice?, overrides? } via POST.
-// It returns the JSON object produced by your prompt (no prose).
+// POST body expected: { address, purchasePrice?, overrides? }
 
 export default async function handler(req, res) {
   // --- CORS / preflight ---
@@ -16,13 +15,13 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Only POST" });
 
-  // --- Basic env validation ---
+  // --- Env check ---
   const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
   const OPENAI_PROMPT_ID = process.env.OPENAI_PROMPT_ID;
   if (!OPENAI_API_KEY) return res.status(500).json({ error: "Missing OPENAI_API_KEY" });
   if (!OPENAI_PROMPT_ID) return res.status(500).json({ error: "Missing OPENAI_PROMPT_ID" });
 
-  // --- Parse JSON body (supports streamed body on Vercel/Node) ---
+  // --- Parse JSON body (supports streams on Vercel) ---
   let body = req.body;
   if (!body) {
     try {
@@ -42,7 +41,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "address is required" });
   }
 
-  // Build the one-line input your prompt expects (address + optional price/overrides)
+  // Build the one-line input your prompt expects
   const priceStr = purchasePrice ? ` — $${purchasePrice}` : "";
   const extra = overrides ? ` ${String(overrides).trim()}` : "";
   const userInput = `${address.trim()}${priceStr}${extra}`;
@@ -56,30 +55,20 @@ export default async function handler(req, res) {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        // Use your published prompt asset
         prompt: { id: OPENAI_PROMPT_ID, version: "1" },
-        // Provide the single-line input for the prompt to parse
         input: userInput,
-        // Force JSON-only output (no prose). Swap to json_schema later if you want strict validation.
+        // Force JSON-only output (no prose)
         response_format: { type: "json_object" }
       }),
     });
 
     const data = await r.json();
-    if (!r.ok) {
-      // Bubble up OpenAI errors (rate limit, auth, etc.)
-      return res.status(r.status).json(data);
-    }
+    if (!r.ok) return res.status(r.status).json(data);
 
-    // --- Robust parsing across possible Responses API shapes ---
+    // Try all common shapes the Responses API might return
     let parsed = data.output_parsed;
-
-    if (!parsed && typeof data.output_text === "string") {
-      parsed = safeParseJSON(data.output_text);
-    }
-
+    if (!parsed && typeof data.output_text === "string") parsed = safeParseJSON(data.output_text);
     if (!parsed && Array.isArray(data.output)) {
-      // responses.output[].content[] may contain { type: "output_text" | "text", text: "..." }
       const firstText = data.output
         .flatMap(m => Array.isArray(m.content) ? m.content : [])
         .find(c => (c.type === "output_text" || c.type === "text") && typeof c.text === "string");
@@ -90,9 +79,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "No JSON returned", raw: redactLarge(data) });
     }
 
-    // Success: return the JSON object your prompt produced
     return res.status(200).json(parsed);
-
   } catch (e) {
     return res.status(500).json({ error: String(e?.message || e) });
   }
@@ -105,6 +92,6 @@ function safeParseJSON(s) {
 function redactLarge(obj) {
   try {
     const str = JSON.stringify(obj);
-    return str.length > 40_000 ? JSON.parse(str.slice(0, 40_000)) : obj;
+    return str.length > 40000 ? JSON.parse(str.slice(0, 40000)) : obj;
   } catch { return { notice: "unable to serialize raw response" }; }
 }
