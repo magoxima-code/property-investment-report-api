@@ -46,7 +46,7 @@
         <input id="over" placeholder="self-managed; rate 7.6%; down 25%" />
       </div>
       <button id="go" type="submit">Generate</button>
-      <div id="err" class="muted"></div>
+      <div id="err" class="muted" style="min-height:18px;margin-top:4px;"></div>
     </form>
   </div>
 
@@ -65,6 +65,7 @@ const fmtUSD = n => (n==null||isNaN(n)) ? "-" :
   Number(n).toLocaleString(undefined,{style:"currency",currency:"USD",maximumFractionDigits:0});
 const pct = n => ((n||0)*100).toFixed(2)+"%";
 const sum = a => a.reduce((s,x)=>s+(x||0),0);
+const safeParseJSON = (s)=>{ try{ return s ? JSON.parse(s) : null; }catch{ return null; } };
 
 function mapFromSchema(x){
   const pctToDec = (n,def=0)=> typeof n==="number"? n/100 : def;
@@ -132,8 +133,6 @@ function renderReport(data){
   const monthlyPI = (loanAmount>0 && r>0) ? (loanAmount*r)/(1-Math.pow(1+r,-n)) : 0;
   const annualDebtService = monthlyPI*12;
   const dscr = annualDebtService ? (noi/annualDebtService) : 0;
-  const pointsCost = d.purchasePrice * d.pointsOnLoanPctOfPrice;
-  const cashInvested = d.purchasePrice*d.financing.downPct + closingCost + pointsCost;
   const cashFlow = noi - annualDebtService;
   const capRate = totalCost ? (noi/totalCost) : 0;
 
@@ -158,69 +157,46 @@ function renderReport(data){
       ${metric("Modeled Rent (Total)", fmtUSD(monthlyRent)+"/mo")}
     </div>
 
-    <h2 style="margin-top:18px">Income & Expenses</h2>
-    <div class="grid">
-      <div class="card pad">
-        <h3 class="muted" style="margin:0 0 8px">Income (Annual)</h3>
-        ${table([
-          ["Gross Scheduled Rent", fmtUSD(annualGSR)],
-          ["Less Vacancy", fmtUSD(vacancy)],
-          ["Effective Gross Income (EGI)", fmtUSD(egi), true],
-        ])}
-      </div>
-      <div class="card pad">
-        <h3 class="muted" style="margin:0 0 8px">Operating Expenses (Annual)</h3>
-        ${table([
-          ["Property Taxes", fmtUSD(d.taxesAnnual)],
-          ["Insurance (est.)", fmtUSD(d.insuranceAnnual)],
-          ["Maintenance", fmtUSD(maint)],
-          ["Management", fmtUSD(mgmt)],
-          ["Utilities (LL-paid)", fmtUSD(d.utilsAnnualLL)],
-          ["Other", fmtUSD(d.otherAnnual)],
-          ["Total OpEx", fmtUSD(opEx), true],
-        ])}
-      </div>
-    </div>
-
     <h2 style="margin-top:18px">Units & Rents</h2>
-    ${unitsTable(d.units)}
-
-    ${d.comps?.length ? `
-      <h2 style="margin-top:18px">Rental Comps</h2>
-      ${compsTable(d.comps)}
-    ` : ""}
-
-    <div class="muted" style="margin-top:18px">For underwriting/education only. Not legal, tax, or financial advice.</div>
+    <table><thead><tr><th>Unit</th><th style="text-align:right">Rent</th></tr></thead><tbody>
+      ${d.units.map(u=>`<tr><td>${u.name}</td><td style="text-align:right">${fmtUSD(u.rent)}/mo</td></tr>`).join("")}
+    </tbody></table>
   `;
   document.getElementById("reportEmpty").style.display="none";
   el.style.display="block";
 }
 
 function metric(label,val){ return `<div class="metric"><div class="lbl">${label}</div><div class="val">${val}</div></div>`; }
-function table(rows){ return `<table><tbody>${
-  rows.map(r=>`<tr${r[2]?' style="font-weight:600"':''}><td>${r[0]}</td><td style="text-align:right">${r[1]}</td></tr>`).join("")
-}</tbody></table>`; }
-function unitsTable(units){ return `<table><thead><tr><th>Unit</th><th style="text-align:right">Rent</th></tr></thead><tbody>${
-  units.map(u=>`<tr><td>${u.name}</td><td style="text-align:right">${fmtUSD(u.rent)}/mo</td></tr>`).join("")
-}</tbody></table>`; }
-function compsTable(cs){ return `<table><thead><tr><th>Address</th><th>Bed/Bath</th><th style="text-align:right">Rent</th><th style="text-align:right">Dist</th><th>Notes</th></tr></thead><tbody>${
-  cs.map(c=>`<tr><td>${c.label}</td><td>${c.beds}</td><td style="text-align:right">${fmtUSD(c.rent)}</td><td style="text-align:right">${(c.dist??0).toFixed? c.dist.toFixed(1)+' mi': c.dist}</td><td>${c.condition||""}</td></tr>`).join("")
-}</tbody></table>`; }
 
-// ---- Form ----------------------------------------------------------
+// ---- Form submit -----------------------------------------------------------
 const errBox = document.getElementById("err");
 const btn = document.getElementById("go");
+
 document.getElementById("f").addEventListener("submit", async (e)=>{
   e.preventDefault();
   errBox.textContent=""; btn.disabled = true; btn.textContent = "Generating…";
+
   const address = document.getElementById("addr").value.trim();
   const purchasePrice = Number((document.getElementById("price").value||"").replace(/[$,\\s]/g,"")) || undefined;
   const overrides = document.getElementById("over").value.trim() || undefined;
 
   try{
-    const r = await fetch(API, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ address, purchasePrice, overrides }) });
-    const data = await r.json();
-    if(!r.ok){ errBox.textContent = data?.error || `API error ${r.status}`; return; }
+    const r = await fetch(API, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ address, purchasePrice, overrides })
+    });
+    const raw = await r.text();
+    if (!r.ok) {
+      const maybe = safeParseJSON(raw);
+      errBox.textContent = (maybe && maybe.error) ? maybe.error : `API error ${r.status}`;
+      return;
+    }
+    const data = safeParseJSON(raw);
+    if (!data || typeof data !== "object") {
+      errBox.textContent = "API returned invalid format.";
+      return;
+    }
     const mapped = mapFromSchema(data);
     renderReport(mapped);
   }catch(ex){
@@ -230,6 +206,10 @@ document.getElementById("f").addEventListener("submit", async (e)=>{
   }
 });
 </script>
+
+</body>
+</html>
+
 
 </body>
 </html>
