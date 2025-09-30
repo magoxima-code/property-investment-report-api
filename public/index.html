@@ -27,16 +27,17 @@
   .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
   .cols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
   .cols3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .cols4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
   .btn{background:var(--indigo);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-size:14px;cursor:pointer}
   .btn:disabled{opacity:.6;cursor:not-allowed}
   .btn.print{background:var(--green)}
   @media (max-width:1024px){
     .metrics{grid-template-columns:repeat(2,1fr)}
-    .cols,.cols3{grid-template-columns:1fr 1fr}
+    .cols,.cols3,.cols4{grid-template-columns:1fr 1fr}
   }
   @media (max-width:640px){
     .metrics{grid-template-columns:1fr}
-    .cols,.cols3{grid-template-columns:1fr}
+    .cols,.cols3,.cols4{grid-template-columns:1fr}
   }
   @media print{
     body{padding:0;background:#fff}
@@ -56,10 +57,15 @@
       <label>Property Address</label>
       <input id="addr" required placeholder="111/113 Cultural Park Blvd S, Cape Coral, FL 33990"/>
 
-      <div class="cols3" style="margin-top:10px">
+      <!-- Now 4 columns: Price, Units, Target Cap, Generate -->
+      <div class="cols4" style="margin-top:10px">
         <div>
           <label>Purchase Price (USD)</label>
           <input id="price" value="0"/>
+        </div>
+        <div>
+          <label>Units (count)</label>
+          <input id="unitcount" value="1"/>
         </div>
         <div>
           <label>Target Cap %</label>
@@ -96,8 +102,7 @@
         <button type="button" class="btn print" onclick="window.print()">Download / Print PDF</button>
       </div>
       <div class="muted" style="margin-top:6px">
-        Defaults used above: down 25%, rate 7.70%, term 30y, vacancy 5%, management 8% (0% if self-managed),
-        maintenance 8%, closing 2%, points 0%, rehab 0, taxes 0, insurance 0, HOA 0, utilities 0, other 0, target cap 8%.
+        Defaults: down 25%, rate 7.70%, term 30y, vacancy 5%, management 8% (0% if self-managed), maintenance 8%, closing 2%, points 0%, rehab 0, taxes 0, insurance 0, HOA 0, utilities 0, other 0, target cap 8%, <b>units 1</b>.
       </div>
     </form>
   </div>
@@ -242,30 +247,29 @@ function render(d){
     <div class="grid3">
       ${mini("Type", d.snapshot.propertyType||"-")}
       ${mini("Unit Mix", d.snapshot.unitMix||"-")}
-      ${mini("Beds/Baths", [d.snapshot.beds,d.snapshot.baths].every(v=>v==null)?"-":`${d.snapshot.beds}/${d.snapshot.baths}`)}
-      ${mini("Living Area", d.snapshot.livingSqft?`${d.snapshot.livingSqft.toLocaleString()} sqft`:"-")}
+      ${mini("Beds/Baths", [d.snapshot.beds,d.snapshot.baths].every(v=>v==null)?"-":(d.snapshot.beds+"/"+d.snapshot.baths))}
+      ${mini("Living Area", d.snapshot.livingSqft? (d.snapshot.livingSqft.toLocaleString()+" sqft") : "-")}
       ${mini("Year Built", d.snapshot.yearBuilt||"-")}
-      ${mini("Lot Size", d.snapshot.lotSizeSqft?`${d.snapshot.lotSizeSqft.toLocaleString()} sqft`:"-")}
-      ${mini("Taxes", `${fmtUSD(d.snapshot.taxesAnnual)} ${d.snapshot.taxesYear?`(${d.snapshot.taxesYear})`:""}`)}
+      ${mini("Lot Size", d.snapshot.lotSizeSqft? (d.snapshot.lotSizeSqft.toLocaleString()+" sqft") : "-")}
+      ${mini("Taxes", fmtUSD(d.snapshot.taxesAnnual) + (d.snapshot.taxesYear?(" ("+d.snapshot.taxesYear+")"):""))}
       ${mini("Insurance (est.)", fmtUSD(d.snapshot.insAnnual))}
-      ${mini("HOA", d.snapshot.hoa.has ? `${fmtUSD(d.snapshot.hoa.annual)}/yr` : "None")}
+      ${mini("HOA", d.snapshot.hoa.has ? (fmtUSD(d.snapshot.hoa.annual)+"/yr") : "None")}
     </div>
 
     <h2>Units & Rents</h2>
     ${table([["Unit","Rent"]], d.units.map(u=>[u.name, fmtUSD(u.rent)+"/mo"]))}
 
-    ${d.comps.length ? `
-      <h2>Rental Comps</h2>
-      <div class="muted">Plain text only (no links).</div>
-      ${table([["Address","Bed/Bath","Rent","Distance","Condition"]],
+    ${d.comps.length ? (
+      '<h2>Rental Comps</h2><div class="muted">Plain text only (no links).</div>' +
+      table([["Address","Bed/Bath","Rent","Distance","Condition"]],
         d.comps.map(c=>[
           c.address,
           c.beds,
           fmtUSD(c.rent),
-          (c.dist==null ? "-" : (Number(c.dist).toFixed(1) + " mi")),  /* <-- fixed: no nested backticks */
+          (c.dist==null ? "-" : (Number(c.dist).toFixed(1) + " mi")),
           (c.condition||"")
-        ]))}
-    `: ""}
+        ]))
+    ) : ''}
 
     <h2>Income & Expenses</h2>
     <div class="grid2">
@@ -348,16 +352,16 @@ function render(d){
   el.style.display="block";
 }
 
-function metric(label,val){ return `<div class="metric"><div class="lbl">${label}</div><div class="val">${val}</div></div>`; }
-function mini(label,val){ return `<div class="card pad"><div class="lbl muted" style="margin-bottom:4px">${label}</div><div>${val||"-"}</div></div>`; }
+function metric(label,val){ return '<div class="metric"><div class="lbl">'+label+'</div><div class="val">'+val+'</div></div>'; }
+function mini(label,val){ return '<div class="card pad"><div class="lbl muted" style="margin-bottom:4px">'+label+'</div><div>'+(val||"-")+'</div></div>'; }
 function table(headers, rows){
-  const thead = headers && headers.length ? `<thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead>` : "";
+  const thead = (headers && headers.length) ? '<thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead>' : '';
   const body = rows.map(r=>{
     const bold = r[2]===true;
-    const cells = r.map((c,i)=> i===2 && c===true ? "" : `<td${bold?" style='font-weight:600'":""}>${c}</td>`).join("");
-    return `<tr>${cells}</tr>`;
-  }).join("");
-  return `<table>${thead}<tbody>${body}</tbody></table>`;
+    const cells = r.map((c,i)=> i===2 && c===true ? '' : '<td'+(bold?' style="font-weight:600"':'')+'>'+c+'</td>').join('');
+    return '<tr>'+cells+'</tr>';
+  }).join('');
+  return '<table>'+thead+'<tbody>'+body+'</tbody></table>';
 }
 
 /* ---------- Build overrides (always include all fields) & submit ---------- */
@@ -375,6 +379,7 @@ document.getElementById("f").addEventListener("submit", async (e)=>{
     const address = strVal("addr");
     if(!address){ errBox.textContent="Please enter an address."; btn.disabled=false; btn.textContent="Generate"; return; }
 
+    const units = numVal("unitcount") ?? 1;
     const down = numVal("down") ?? 25;
     const rate = numVal("rate") ?? 7.7;
     const term = numVal("term") ?? 30;
@@ -394,6 +399,7 @@ document.getElementById("f").addEventListener("submit", async (e)=>{
 
     const overrides =
       (isSelf ? "self-managed; " : "") +
+      "units " + units + "; " +
       "down " + down + "%; rate " + rate + "%; term " + term + "y; " +
       "points " + points + "%; closing " + closing + "%; rehab " + rehab + "; " +
       "vacancy " + vacancy + "%; management " + mgmt + "%; maintenance " + maint + "%; " +
@@ -431,6 +437,7 @@ document.getElementById("f").addEventListener("submit", async (e)=>{
 
 </body>
 </html>
+
 
 
 
