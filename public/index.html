@@ -258,7 +258,13 @@ function render(d){
       <h2>Rental Comps</h2>
       <div class="muted">Plain text only (no links).</div>
       ${table([["Address","Bed/Bath","Rent","Distance","Condition"]],
-        d.comps.map(c=>[c.address, c.beds, fmtUSD(c.rent), c.dist==null?"-":\`\${Number(c.dist).toFixed(1)} mi\`, c.condition||""]))}
+        d.comps.map(c=>[
+          c.address,
+          c.beds,
+          fmtUSD(c.rent),
+          (c.dist==null ? "-" : (Number(c.dist).toFixed(1) + " mi")),  /* <-- fixed: no nested backticks */
+          (c.condition||"")
+        ]))}
     `: ""}
 
     <h2>Income & Expenses</h2>
@@ -292,7 +298,7 @@ function render(d){
     ${table([], [
       ["Down Payment", pct(d.fin.downPct)],
       ["Rate (annual)", pct(d.fin.rateAnnual)],
-      ["Term", \`\${d.fin.termMonths} mo\`],
+      ["Term", (d.fin.termMonths + " mo")],
       ["Loan Amount", fmtUSD(c.loanAmount)],
       ["Monthly P&I", fmtUSD(c.monthlyPI)],
       ["Annual Debt Service", fmtUSD(c.ads)],
@@ -354,7 +360,7 @@ function table(headers, rows){
   return `<table>${thead}<tbody>${body}</tbody></table>`;
 }
 
-/* ---------- Build overrides (ALWAYS include all fields) & submit ---------- */
+/* ---------- Build overrides (always include all fields) & submit ---------- */
 const errBox = document.getElementById("err");
 const btn = document.getElementById("go");
 
@@ -369,7 +375,6 @@ document.getElementById("f").addEventListener("submit", async (e)=>{
     const address = strVal("addr");
     if(!address){ errBox.textContent="Please enter an address."; btn.disabled=false; btn.textContent="Generate"; return; }
 
-    // ALWAYS include every variable with the form’s value (defaults are prefilled)
     const down = numVal("down") ?? 25;
     const rate = numVal("rate") ?? 7.7;
     const term = numVal("term") ?? 30;
@@ -388,12 +393,12 @@ document.getElementById("f").addEventListener("submit", async (e)=>{
     const isSelf = document.getElementById("selfmgmt").checked;
 
     const overrides =
-      `${isSelf ? "self-managed; " : ""}` +
-      `down ${down}%; rate ${rate}%; term ${term}y; ` +
-      `points ${points}%; closing ${closing}%; rehab ${rehab}; ` +
-      `vacancy ${vacancy}%; management ${mgmt}%; maintenance ${maint}%; ` +
-      `taxes ${taxes}; insurance ${ins}; hoa ${hoa}; utilities ${utils}; other ${other}; ` +
-      `targetcap ${targetcap}%`;
+      (isSelf ? "self-managed; " : "") +
+      "down " + down + "%; rate " + rate + "%; term " + term + "y; " +
+      "points " + points + "%; closing " + closing + "%; rehab " + rehab + "; " +
+      "vacancy " + vacancy + "%; management " + mgmt + "%; maintenance " + maint + "%; " +
+      "taxes " + taxes + "; insurance " + ins + "; hoa " + hoa + "; utilities " + utils + "; other " + other + "; " +
+      "targetcap " + targetcap + "%";
 
     const purchasePrice = numVal("price") ?? 0;
 
@@ -426,6 +431,7 @@ document.getElementById("f").addEventListener("submit", async (e)=>{
 
 </body>
 </html>
+
 
 
 
