@@ -1,97 +1,49 @@
-// /api/generate.js  — Vercel Serverless Function (Node 18, ESM)
-// Calls your published OpenAI Prompt (pmpt_...) and returns JSON only.
-//
-// Env vars required in Vercel Project Settings:
-//   OPENAI_API_KEY   = your OpenAI API key
-//   OPENAI_PROMPT_ID = pmpt_... from “Your prompt was published”
-//
-// POST body expected: { address, purchasePrice?, overrides? }
-
+// Vercel Serverless Function: /api/generate
 export default async function handler(req, res) {
-  // --- CORS / preflight ---
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Only POST" });
 
-  // --- Env check ---
-  const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-  const OPENAI_PROMPT_ID = process.env.OPENAI_PROMPT_ID;
-  if (!OPENAI_API_KEY) return res.status(500).json({ error: "Missing OPENAI_API_KEY" });
-  if (!OPENAI_PROMPT_ID) return res.status(500).json({ error: "Missing OPENAI_PROMPT_ID" });
-
-  // --- Parse JSON body (supports streams on Vercel) ---
   let body = req.body;
   if (!body) {
     try {
       const chunks = [];
       for await (const chunk of req) chunks.push(chunk);
-      const raw = Buffer.concat(chunks).toString();
-      body = raw ? JSON.parse(raw) : {};
-    } catch {
-      body = {};
-    }
-  } else if (typeof body === "string") {
-    try { body = JSON.parse(body); } catch { body = {}; }
+      body = JSON.parse(Buffer.concat(chunks).toString() || "{}");
+    } catch { body = {}; }
   }
 
-  const { address, purchasePrice, overrides } = body || {};
-  if (!address || typeof address !== "string" || !address.trim()) {
-    return res.status(400).json({ error: "address is required" });
-  }
+  const { address, purchasePrice, overrides } = body;
+  if (!address) return res.status(400).json({ error: "address is required" });
 
-  // Build the one-line input your prompt expects
   const priceStr = purchasePrice ? ` — $${purchasePrice}` : "";
-  const extra = overrides ? ` ${String(overrides).trim()}` : "";
-  const userInput = `${address.trim()}${priceStr}${extra}`;
+  const extra = overrides ? ` ${overrides}` : "";
+  const userInput = `${address}${priceStr}${extra}`;
 
   try {
-    // --- Call OpenAI Responses API with your Prompt ID ---
     const r = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        prompt: { id: OPENAI_PROMPT_ID, version: "1" },
-        input: userInput,
-        // Force JSON-only output (no prose)
-        response_format: { type: "json_object" }
+        prompt: { id: process.env.OPENAI_PROMPT_ID, version: "1" },
+        input: userInput
       }),
     });
-
     const data = await r.json();
     if (!r.ok) return res.status(r.status).json(data);
 
-    // Try all common shapes the Responses API might return
-    let parsed = data.output_parsed;
-    if (!parsed && typeof data.output_text === "string") parsed = safeParseJSON(data.output_text);
-    if (!parsed && Array.isArray(data.output)) {
-      const firstText = data.output
-        .flatMap(m => Array.isArray(m.content) ? m.content : [])
-        .find(c => (c.type === "output_text" || c.type === "text") && typeof c.text === "string");
-      if (firstText) parsed = safeParseJSON(firstText.text);
-    }
-
-    if (!parsed) {
-      return res.status(500).json({ error: "No JSON returned", raw: redactLarge(data) });
-    }
+    const parsed = data.output_parsed ??
+      (typeof data.output_text === "string" ? safeParseJSON(data.output_text) : null);
+    if (!parsed) return res.status(500).json({ error: "No JSON returned", raw: data });
 
     return res.status(200).json(parsed);
   } catch (e) {
     return res.status(500).json({ error: String(e?.message || e) });
   }
 }
-
-function safeParseJSON(s) {
-  try { return s ? JSON.parse(s) : null; } catch { return null; }
-}
-
-function redactLarge(obj) {
-  try {
-    const str = JSON.stringify(obj);
-    return str.length > 40000 ? JSON.parse(str.slice(0, 40000)) : obj;
-  } catch { return { notice: "unable to serialize raw response" }; }
-}
+function safeParseJSON(s){ try{ return s ? JSON.parse(s) : null; }catch{ return null; } }
