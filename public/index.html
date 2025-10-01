@@ -25,19 +25,14 @@
   th{color:#64748b;font-weight:600}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-  .cols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-  .cols3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-  .cols4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
   .btn{background:var(--indigo);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-size:14px;cursor:pointer}
   .btn:disabled{opacity:.6;cursor:not-allowed}
   .btn.print{background:var(--green)}
   @media (max-width:1024px){
     .metrics{grid-template-columns:repeat(2,1fr)}
-    .cols,.cols3,.cols4{grid-template-columns:1fr 1fr}
   }
   @media (max-width:640px){
     .metrics{grid-template-columns:1fr}
-    .cols,.cols3,.cols4{grid-template-columns:1fr}
   }
   @media print{
     body{padding:0;background:#fff}
@@ -50,60 +45,30 @@
 
 <div class="container">
 
-  <!-- TOP: FULL INPUT FORM (all defaults visible) -->
+  <!-- TOP: MINIMAL INPUTS -->
   <div class="card pad no-print">
     <h1>Property Report Builder</h1>
     <form id="f">
       <label>Property Address</label>
       <input id="addr" required placeholder="111/113 Cultural Park Blvd S, Cape Coral, FL 33990"/>
 
-      <!-- Now 4 columns: Price, Units, Target Cap, Generate -->
-      <div class="cols4" style="margin-top:10px">
-        <div>
+      <div class="row" style="gap:10px;margin-top:8px">
+        <div style="flex:1">
           <label>Purchase Price (USD)</label>
-          <input id="price" value="0"/>
-        </div>
-        <div>
-          <label>Units (count)</label>
-          <input id="unitcount" value="1"/>
-        </div>
-        <div>
-          <label>Target Cap %</label>
-          <input id="targetcap" value="8"/>
+          <input id="price" placeholder="500000"/>
         </div>
         <div style="display:flex;align-items:flex-end">
-          <button id="go" class="btn" type="submit" style="width:100%">Generate</button>
+          <button id="go" class="btn" type="submit">Generate</button>
+        </div>
+        <div style="display:flex;align-items:flex-end">
+          <button type="button" class="btn print" onclick="window.print()">Download / Print PDF</button>
         </div>
       </div>
 
-      <div class="cols" style="margin-top:12px">
-        <div><label>Down %</label><input id="down" value="25"/></div>
-        <div><label>Rate % (annual)</label><input id="rate" value="7.7"/></div>
-        <div><label>Term (years)</label><input id="term" value="30"/></div>
-        <div><label>Points %</label><input id="points" value="0"/></div>
-        <div><label>Closing %</label><input id="closing" value="2"/></div>
-        <div><label>Rehab ($)</label><input id="rehab" value="0"/></div>
-        <div><label>Vacancy %</label><input id="vacancy" value="5"/></div>
-        <div><label>Management % of EGI</label><input id="mgmt" value="8"/></div>
-        <div><label>Maintenance % of Gross</label><input id="maint" value="8"/></div>
-        <div><label>Taxes ($/yr)</label><input id="taxes" value="0"/></div>
-        <div><label>Insurance ($/yr)</label><input id="ins" value="0"/></div>
-        <div><label>HOA ($/yr)</label><input id="hoa" value="0"/></div>
-        <div><label>Utilities ($/yr)</label><input id="utils" value="0"/></div>
-        <div><label>Other OpEx ($/yr)</label><input id="other" value="0"/></div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:28px">
-          <input type="checkbox" id="selfmgmt"/>
-          <label for="selfmgmt" style="margin:0">Self-managed (sets management to 0%)</label>
-        </div>
+      <div class="muted" style="margin-top:8px">
+        Uses defaults behind the scenes: units 1, down 25%, rate 7.70%, term 30y, vacancy 5%, management 8%, maintenance 8%, closing 2%, points 0%, rehab $0, taxes $0, insurance $0, HOA $0, utilities $0, other $0, target cap 8%.
       </div>
-
-      <div class="row" style="margin-top:10px">
-        <div class="muted" id="err" style="min-height:18px"></div>
-        <button type="button" class="btn print" onclick="window.print()">Download / Print PDF</button>
-      </div>
-      <div class="muted" style="margin-top:6px">
-        Defaults: down 25%, rate 7.70%, term 30y, vacancy 5%, management 8% (0% if self-managed), maintenance 8%, closing 2%, points 0%, rehab 0, taxes 0, insurance 0, HOA 0, utilities 0, other 0, target cap 8%, <b>units 1</b>.
-      </div>
+      <div class="muted" id="err" style="min-height:18px;margin-top:6px"></div>
     </form>
   </div>
 
@@ -119,6 +84,36 @@
 const API = "/api/generate";
 const DEBUG = new URLSearchParams(location.search).has("debug");
 
+/* ---------- Defaults sent as overrides (hidden from the user) ---------- */
+const DEFAULTS = {
+  units: 1,
+  down: 25,
+  rate: 7.7,
+  term: 30,
+  points: 0,
+  closing: 2,
+  rehab: 0,
+  vacancy: 5,
+  management: 8,
+  maintenance: 8,
+  taxes: 0,
+  insurance: 0,
+  hoa: 0,
+  utilities: 0,
+  other: 0,
+  targetcap: 8,
+  selfManaged: false
+};
+function buildOverrides(d=DEFAULTS){
+  return (d.selfManaged ? "self-managed; " : "") +
+    "units " + d.units + "; " +
+    "down " + d.down + "%; rate " + d.rate + "%; term " + d.term + "y; " +
+    "points " + d.points + "%; closing " + d.closing + "%; rehab " + d.rehab + "; " +
+    "vacancy " + d.vacancy + "%; management " + d.management + "%; maintenance " + d.maintenance + "%; " +
+    "taxes " + d.taxes + "; insurance " + d.insurance + "; hoa " + d.hoa + "; utilities " + d.utilities + "; other " + d.other + "; " +
+    "targetcap " + d.targetcap + "%";
+}
+
 /* ---------- Helpers ---------- */
 const fmtUSD = n => (n==null||isNaN(n)) ? "-" :
   Number(n).toLocaleString(undefined,{style:"currency",currency:"USD",maximumFractionDigits:0});
@@ -133,11 +128,11 @@ function mapFromSchema(x){
   const yearsToMonths = (y,def=30)=> typeof y==="number"? y*12 : def*12;
 
   const units = Array.isArray(x.units)&&x.units.length
-    ? x.units.map((u,i)=>({ name: u.name || `Unit ${i+1}`, rent: u.modeledRentMonthly ?? 0 }))
+    ? x.units.map((u,i)=>({ name: u.name || ("Unit " + (i+1)), rent: u.modeledRentMonthly ?? 0 }))
     : [{ name:"Subject Unit", rent: x.rents?.modeledMarketRentMonthly ?? 0 }];
 
   const comps = Array.isArray(x.rentComps)? x.rentComps.map(c=>({
-    address: c.address, beds: `${c.beds}/${c.baths}`,
+    address: c.address, beds: (c.beds + "/" + c.baths),
     rent: c.askingRent ?? 0, dist: c.distanceMiles ?? null, condition: c.conditionNote || ""
   })) : [];
 
@@ -247,7 +242,7 @@ function render(d){
     <div class="grid3">
       ${mini("Type", d.snapshot.propertyType||"-")}
       ${mini("Unit Mix", d.snapshot.unitMix||"-")}
-      ${mini("Beds/Baths", [d.snapshot.beds,d.snapshot.baths].every(v=>v==null)?"-":(d.snapshot.beds+"/"+d.snapshot.baths))}
+      ${mini("Beds/Baths", ([d.snapshot.beds,d.snapshot.baths].every(v=>v==null)?"-":(d.snapshot.beds+"/"+d.snapshot.baths)))}
       ${mini("Living Area", d.snapshot.livingSqft? (d.snapshot.livingSqft.toLocaleString()+" sqft") : "-")}
       ${mini("Year Built", d.snapshot.yearBuilt||"-")}
       ${mini("Lot Size", d.snapshot.lotSizeSqft? (d.snapshot.lotSizeSqft.toLocaleString()+" sqft") : "-")}
@@ -364,49 +359,22 @@ function table(headers, rows){
   return '<table>'+thead+'<tbody>'+body+'</tbody></table>';
 }
 
-/* ---------- Build overrides (always include all fields) & submit ---------- */
+/* ---------- Submit (address + price only) ---------- */
 const errBox = document.getElementById("err");
 const btn = document.getElementById("go");
 
-function numVal(id){ const v = document.getElementById(id).value.trim(); return v===""?null:Number(v.replace(/[$,\s]/g,"")); }
-function strVal(id){ return document.getElementById(id).value.trim(); }
+function numFromInput(v){ return v==null||v.trim()==="" ? undefined : Number(v.replace(/[$,\s]/g,"")); }
 
 document.getElementById("f").addEventListener("submit", async (e)=>{
   e.preventDefault();
   errBox.textContent=""; btn.disabled = true; btn.textContent = "Generating…";
 
   try{
-    const address = strVal("addr");
+    const address = document.getElementById("addr").value.trim();
     if(!address){ errBox.textContent="Please enter an address."; btn.disabled=false; btn.textContent="Generate"; return; }
 
-    const units = numVal("unitcount") ?? 1;
-    const down = numVal("down") ?? 25;
-    const rate = numVal("rate") ?? 7.7;
-    const term = numVal("term") ?? 30;
-    const points = numVal("points") ?? 0;
-    const closing = numVal("closing") ?? 2;
-    const rehab = numVal("rehab") ?? 0;
-    const vacancy = numVal("vacancy") ?? 5;
-    const mgmt = document.getElementById("selfmgmt").checked ? 0 : (numVal("mgmt") ?? 8);
-    const maint = numVal("maint") ?? 8;
-    const taxes = numVal("taxes") ?? 0;
-    const ins = numVal("ins") ?? 0;
-    const hoa = numVal("hoa") ?? 0;
-    const utils = numVal("utils") ?? 0;
-    const other = numVal("other") ?? 0;
-    const targetcap = numVal("targetcap") ?? 8;
-    const isSelf = document.getElementById("selfmgmt").checked;
-
-    const overrides =
-      (isSelf ? "self-managed; " : "") +
-      "units " + units + "; " +
-      "down " + down + "%; rate " + rate + "%; term " + term + "y; " +
-      "points " + points + "%; closing " + closing + "%; rehab " + rehab + "; " +
-      "vacancy " + vacancy + "%; management " + mgmt + "%; maintenance " + maint + "%; " +
-      "taxes " + taxes + "; insurance " + ins + "; hoa " + hoa + "; utilities " + utils + "; other " + other + "; " +
-      "targetcap " + targetcap + "%";
-
-    const purchasePrice = numVal("price") ?? 0;
+    const purchasePrice = numFromInput(document.getElementById("price").value);
+    const overrides = buildOverrides(DEFAULTS); // hidden defaults
 
     const r = await fetch(API, {
       method:"POST",
@@ -417,7 +385,7 @@ document.getElementById("f").addEventListener("submit", async (e)=>{
     const raw = await r.text();
     if (!r.ok) {
       const maybe = safeParseJSON(raw);
-      errBox.textContent = (maybe && maybe.error) ? (maybe.error.message || maybe.error || raw) : `API error ${r.status}`;
+      errBox.textContent = (maybe && (maybe.error?.message || maybe.error)) || ("API error " + r.status);
       if (DEBUG) console.error("API error:", raw);
       return;
     }
@@ -437,6 +405,7 @@ document.getElementById("f").addEventListener("submit", async (e)=>{
 
 </body>
 </html>
+
 
 
 
