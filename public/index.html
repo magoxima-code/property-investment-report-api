@@ -17,17 +17,16 @@
   label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
   input{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px}
   .default-input{background:#f1f5f9;color:#64748b;border-color:#e2e8f0}
-  .row{display:flex;gap:12px;align-items:flex-end}
+  .row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
   .muted{color:#64748b;font-size:12px}
   .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
   .metric{border:1px solid var(--line);border-radius:12px;padding:12px}
   .metric .lbl{font-size:12px;color:#64748b}.metric .val{font-size:20px;font-weight:600}
-  table{width:100%;border-collapse:collapse;font-size:14px} th,td{padding:8px;border-bottom:1px solid var(--line);text-align:left}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{padding:8px;border-bottom:1px solid var(--line);text-align:left}
   th{color:#64748b;font-weight:600}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-  .cols2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .cols3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
   .cols4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
   .btn{background:var(--indigo);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-size:14px;cursor:pointer}
   .btn:disabled{opacity:.6;cursor:not-allowed}
@@ -60,23 +59,23 @@
       <label>Property Address</label>
       <input id="addr" required placeholder="111/113 Cultural Park Blvd S, Cape Coral, FL 33990"/>
 
-      <!-- Same level: Price, Units, Beds, Baths, Generate, Print -->
-      <div class="row" style="margin-top:8px;flex-wrap:wrap">
-        <div style="flex:1 1 220px">
+      <!-- Same row: Price, Units, Beds, Baths, Generate, Print -->
+      <div class="row" style="margin-top:8px">
+        <div style="flex:1 1 240px">
           <label>Purchase Price (USD)</label>
           <input id="price" placeholder="500000"/>
         </div>
-        <div style="width:150px">
+        <div style="width:140px">
           <label>Units</label>
-          <input id="units" placeholder="1" value="1"/>
+          <input id="units" value="1" placeholder="1"/>
         </div>
-        <div style="width:150px">
+        <div style="width:140px">
           <label>Beds</label>
-          <input id="beds" placeholder="2" value="2"/>
+          <input id="beds" value="2" placeholder="2"/>
         </div>
-        <div style="width:150px">
+        <div style="width:140px">
           <label>Baths</label>
-          <input id="baths" placeholder="1" value="1"/>
+          <input id="baths" value="1" placeholder="1"/>
         </div>
         <div>
           <button id="go" class="btn" type="submit">Generate</button>
@@ -194,21 +193,26 @@ function compute(d){
   const annualGSR = monthlyRent*12;
   const vacancy = annualGSR*d.vacancyRate;
   const egi = annualGSR - vacancy;
+
   const maintenance = annualGSR*d.maintPctOfGross;
   const management = egi*d.mgmtPctOfEGI * (d.selfManaged ? 0 : 1);
+
   const taxes = d.snapshot.taxesAnnual;
   const insurance = d.snapshot.insAnnual;
   const hoa = d.snapshot.hoa.annual || 0;
   const opEx = taxes + insurance + hoa + maintenance + management + d.utilsLL + d.otherOpEx;
+
   const noi = egi - opEx;
   const closing = d.purchasePrice * d.closingPct;
   const pointsCost = d.purchasePrice * d.pointsPctOfPrice;
-  const totalCost = d.purchasePrice + closing;
+  const totalCost = d.purchasePrice + closing; // keep points out of basis for cap calc
+
   const loanAmount = d.purchasePrice * (1 - d.fin.downPct);
   const r = d.fin.rateAnnual/12, n = d.fin.termMonths;
   const monthlyPI = (loanAmount>0 && r>0) ? (loanAmount*r)/(1-Math.pow(1+r,-n)) : 0;
   const ads = monthlyPI*12;
   const dscr = ads ? (noi/ads) : 0;
+
   const cashInvested = d.purchasePrice*d.fin.downPct + closing + pointsCost + d.rehabBudget;
   const cashFlow = noi - ads;
   const cap = totalCost ? (noi/totalCost) : 0;
@@ -223,9 +227,9 @@ function compute(d){
   };
 
   const loaded = 1 + d.closingPct + d.pointsPctOfPrice;
-  theMax = d.targetCap>0 ? (noi / d.targetCap) / loaded : null;
+  const maxPurchaseAtTargetCap = d.targetCap>0 ? (noi / d.targetCap) / loaded : null;
 
-  return { monthlyRent, annualGSR, vacancy, egi, maintenance, management, opEx, noi, closing, pointsCost, totalCost, loanAmount, monthlyPI, ads, dscr, cashInvested, cashFlow, cap, onePctRule, sens, maxPurchaseAtTargetCap: theMax };
+  return { monthlyRent, annualGSR, vacancy, egi, maintenance, management, opEx, noi, closing, pointsCost, totalCost, loanAmount, monthlyPI, ads, dscr, cashInvested, cashFlow, cap, onePctRule, sens, maxPurchaseAtTargetCap };
 }
 
 /* ---------- Render ---------- */
@@ -241,6 +245,7 @@ function render(d){
       <button class="btn print no-print" onclick="window.print()">Download / Print PDF</button>
     </div>
 
+    <h2>Executive Summary</h2>
     <div class="metrics" style="margin-top:12px">
       ${metric("Purchase Price", fmtUSD(d.purchasePrice))}
       ${metric("NOI (yr)", fmtUSD(c.noi))}
@@ -267,6 +272,95 @@ function render(d){
 
     <h2>Units & Rents</h2>
     ${table([["Unit","Rent"]], d.units.map(u=>[u.name, fmtUSD(u.rent)+"/mo"]))}
+
+    ${d.comps.length ? (
+      '<h2>Rental Comps</h2><div class="muted">Plain text only (no links).</div>' +
+      table([["Address","Bed/Bath","Rent","Distance","Condition"]],
+        d.comps.map(c=>[
+          c.address,
+          c.beds,
+          fmtUSD(c.rent),
+          (c.dist==null ? "-" : (Number(c.dist).toFixed(1) + " mi")),
+          (c.condition||"")
+        ]))
+    ) : ''}
+
+    <h2>Income & Expenses</h2>
+    <div class="grid2">
+      <div class="card pad">
+        <h3 class="muted">Income (Annual)</h3>
+        ${table([], [
+          ["Gross Scheduled Rent", fmtUSD(c.annualGSR)],
+          ["Less Vacancy", fmtUSD(c.vacancy)],
+          ["Effective Gross Income (EGI)", fmtUSD(c.egi), true],
+        ])}
+        <div class="muted">EGI = Gross Rent × (1 − Vacancy)</div>
+      </div>
+      <div class="card pad">
+        <h3 class="muted">Operating Expenses (Annual)</h3>
+        ${table([], [
+          ["Property Taxes", fmtUSD(d.snapshot.taxesAnnual)],
+          ["Insurance", fmtUSD(d.snapshot.insAnnual)],
+          ["HOA", fmtUSD(d.snapshot.hoa.annual||0)],
+          ["Maintenance (8% of gross)", fmtUSD(c.maintenance)],
+          ["Management", fmtUSD(c.management)],
+          ["Utilities (LL-paid)", fmtUSD(d.utilsLL)],
+          ["Other", fmtUSD(d.otherOpEx)],
+          ["Total OpEx", fmtUSD(c.opEx), true],
+        ])}
+        <div class="muted">OpEx = Taxes + Insurance + HOA + Maintenance + Management + Utilities + Other</div>
+      </div>
+    </div>
+
+    <h2>Financing</h2>
+    ${table([], [
+      ["Down Payment", pct(d.fin.downPct)],
+      ["Rate (annual)", pct(d.fin.rateAnnual)],
+      ["Term", (d.fin.termMonths + " mo")],
+      ["Loan Amount", fmtUSD(c.loanAmount)],
+      ["Monthly P&I", fmtUSD(c.monthlyPI)],
+      ["Annual Debt Service", fmtUSD(c.ads)],
+      ["DSCR", (c.dscr||0).toFixed(2)+"×", true],
+      ["Cash Invested (Down + Closing + Points + Rehab)", fmtUSD(c.cashInvested), true],
+      ["Cash Flow (Annual)", fmtUSD(c.cashFlow)],
+      ["Cash-on-Cash ROI", c.cashInvested>0 ? ( (c.cashFlow/c.cashInvested*100).toFixed(2)+"%" ) : "-", true],
+      ["1% Rule", (c.onePctRule*100).toFixed(2)+"%"]
+    ])}
+
+    <h2>Sensitivity</h2>
+    ${table([["Scenario","NOI","Cap","DSCR","Cash Flow"]], [
+      ["Rent −10%", fmtUSD(c.sens(0.9,1).noi), pct(c.sens(0.9,1).capRate), (c.sens(0.9,1).dscr||0).toFixed(2)+"×", fmtUSD(c.sens(0.9,1).cashFlow)],
+      ["Base Case", fmtUSD(c.noi), pct(c.cap), (c.dscr||0).toFixed(2)+"×", fmtUSD(c.cashFlow)],
+      ["Rent +10%", fmtUSD(c.sens(1.1,1).noi), pct(c.sens(1.1,1).capRate), (c.sens(1.1,1).dscr||0).toFixed(2)+"×", fmtUSD(c.sens(1.1,1).cashFlow)],
+      ["OpEx −10%", fmtUSD(c.sens(1,0.9).noi), pct(c.sens(1,0.9).capRate), (c.sens(1,0.9).dscr||0).toFixed(2)+"×", fmtUSD(c.sens(1,0.9).cashFlow)],
+      ["OpEx +10%", fmtUSD(c.sens(1,1.1).noi), pct(c.sens(1,1.1).capRate), (c.sens(1,1.1).dscr||0).toFixed(2)+"×", fmtUSD(c.sens(1,1.1).cashFlow)]
+    ])}
+
+    <h2>Negotiation Target</h2>
+    ${table([], [
+      ["Target Cap", pct(d.targetCap)],
+      ["Max Purchase @ Target Cap<br><span class='muted'>=(NOI ÷ TargetCap) ÷ (1+Closing%+Points%)</span>", fmtUSD(c.maxPurchaseAtTargetCap), true]
+    ])}
+
+    <h2>Risks</h2>
+    <ul>
+      <li>Insurance cost volatility and wind/hurricane deductibles in coastal FL markets.</li>
+      <li>Tax reassessment post-purchase may raise annual taxes.</li>
+      <li>Aging systems (roof/HVAC/plumbing) can increase capex and vacancy.</li>
+      <li>HOA rules (if applicable) may restrict rentals or add special assessments.</li>
+      <li>Local demand and vacancy risk—monitor absorption and concession trends.</li>
+    </ul>
+
+    <h2>Glossary</h2>
+    <div class="grid2">
+      <div class="card pad"><b>EGI</b> — Effective Gross Income: rent after vacancy.</div>
+      <div class="card pad"><b>OpEx</b> — Operating Expenses: taxes, insurance, HOA, maintenance, management, utilities, other.</div>
+      <div class="card pad"><b>NOI</b> — Net Operating Income: EGI minus OpEx.</div>
+      <div class="card pad"><b>Cap</b> — Capitalization Rate: NOI ÷ Total Cost.</div>
+      <div class="card pad"><b>DSCR</b> — Debt Service Coverage Ratio: NOI ÷ Annual Debt Service.</div>
+      <div class="card pad"><b>CoC</b> — Cash-on-Cash ROI: Annual Cash Flow ÷ Cash Invested.</div>
+    </div>
+    <div class="muted" style="margin-top:12px">For underwriting/education only. Not legal, tax, accounting, or financial advice.</div>
   `;
   document.getElementById("reportEmpty").style.display="none";
   el.style.display="block";
@@ -302,7 +396,7 @@ document.getElementById("f").addEventListener("submit", async (e)=>{
     const beds = numFromInput(document.getElementById("beds").value) ?? 2;
     const baths = numFromInput(document.getElementById("baths").value) ?? 1;
 
-    // Defaults panel (editable)
+    // Defaults (editable in the collapsible panel)
     const down = numFromInput(document.getElementById("down")?.value ?? "25") ?? 25;
     const rate = numFromInput(document.getElementById("rate")?.value ?? "7.7") ?? 7.7;
     const term = numFromInput(document.getElementById("term")?.value ?? "30") ?? 30;
@@ -357,10 +451,3 @@ document.getElementById("f").addEventListener("submit", async (e)=>{
 
 </body>
 </html>
-
-
-
-
-
-
-
