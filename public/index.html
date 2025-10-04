@@ -16,7 +16,8 @@
   h3{font-size:16px;margin:0 0 8px;color:#0f172a}
   label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
   input{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px}
-  .row{display:flex;gap:12px;align-items:center;justify-content:space-between}
+  .default-input{background:#f1f5f9;color:#64748b;border-color:#e2e8f0}
+  .row{display:flex;gap:12px;align-items:flex-end}
   .muted{color:#64748b;font-size:12px}
   .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
   .metric{border:1px solid var(--line);border-radius:12px;padding:12px}
@@ -25,14 +26,21 @@
   th{color:#64748b;font-weight:600}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  .cols2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .cols3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .cols4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
   .btn{background:var(--indigo);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-size:14px;cursor:pointer}
   .btn:disabled{opacity:.6;cursor:not-allowed}
   .btn.print{background:var(--green)}
+  details{border:1px dashed var(--line);border-radius:12px;padding:10px}
+  details summary{cursor:pointer;font-weight:600}
   @media (max-width:1024px){
     .metrics{grid-template-columns:repeat(2,1fr)}
+    .cols4{grid-template-columns:1fr 1fr}
   }
   @media (max-width:640px){
     .metrics{grid-template-columns:1fr}
+    .cols4{grid-template-columns:1fr}
   }
   @media print{
     body{padding:0;background:#fff}
@@ -45,29 +53,65 @@
 
 <div class="container">
 
-  <!-- TOP: MINIMAL INPUTS -->
+  <!-- INPUTS -->
   <div class="card pad no-print">
     <h1>Property Report Builder</h1>
     <form id="f">
       <label>Property Address</label>
       <input id="addr" required placeholder="111/113 Cultural Park Blvd S, Cape Coral, FL 33990"/>
 
-      <div class="row" style="gap:10px;margin-top:8px">
-        <div style="flex:1">
+      <!-- Same level: Price, Units, Beds, Baths, Generate, Print -->
+      <div class="row" style="margin-top:8px;flex-wrap:wrap">
+        <div style="flex:1 1 220px">
           <label>Purchase Price (USD)</label>
           <input id="price" placeholder="500000"/>
         </div>
-        <div style="display:flex;align-items:flex-end">
+        <div style="width:150px">
+          <label>Units</label>
+          <input id="units" placeholder="1" value="1"/>
+        </div>
+        <div style="width:150px">
+          <label>Beds</label>
+          <input id="beds" placeholder="2" value="2"/>
+        </div>
+        <div style="width:150px">
+          <label>Baths</label>
+          <input id="baths" placeholder="1" value="1"/>
+        </div>
+        <div>
           <button id="go" class="btn" type="submit">Generate</button>
         </div>
-        <div style="display:flex;align-items:flex-end">
+        <div>
           <button type="button" class="btn print" onclick="window.print()">Download / Print PDF</button>
         </div>
       </div>
 
-      <div class="muted" style="margin-top:8px">
-        Uses defaults behind the scenes: units 1, down 25%, rate 7.70%, term 30y, vacancy 5%, management 8%, maintenance 8%, closing 2%, points 0%, rehab $0, taxes $0, insurance $0, HOA $0, utilities $0, other $0, target cap 8%.
-      </div>
+      <!-- Collapsible defaults (editable, light gray) -->
+      <details style="margin-top:12px">
+        <summary>Defaults (click to edit)</summary>
+        <div class="cols4" style="margin-top:10px">
+          <div><label>Down %</label><input class="default-input" id="down" value="25"/></div>
+          <div><label>Rate % (annual)</label><input class="default-input" id="rate" value="7.7"/></div>
+          <div><label>Term (years)</label><input class="default-input" id="term" value="30"/></div>
+          <div><label>Points %</label><input class="default-input" id="points" value="0"/></div>
+          <div><label>Closing %</label><input class="default-input" id="closing" value="2"/></div>
+          <div><label>Rehab ($)</label><input class="default-input" id="rehab" value="0"/></div>
+          <div><label>Vacancy %</label><input class="default-input" id="vacancy" value="5"/></div>
+          <div><label>Mgmt % of EGI</label><input class="default-input" id="mgmt" value="8"/></div>
+          <div><label>Maint % of Gross</label><input class="default-input" id="maint" value="8"/></div>
+          <div><label>Taxes ($/yr)</label><input class="default-input" id="taxes" value="0"/></div>
+          <div><label>Insurance ($/yr)</label><input class="default-input" id="ins" value="0"/></div>
+          <div><label>HOA ($/yr)</label><input class="default-input" id="hoa" value="0"/></div>
+          <div><label>Utilities ($/yr)</label><input class="default-input" id="utils" value="0"/></div>
+          <div><label>Other OpEx ($/yr)</label><input class="default-input" id="other" value="0"/></div>
+          <div><label>Target Cap %</label><input class="default-input" id="targetcap" value="8"/></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:28px">
+            <input type="checkbox" id="selfmgmt"/>
+            <label for="selfmgmt" style="margin:0;color:#64748b">Self-managed (sets management to 0%)</label>
+          </div>
+        </div>
+      </details>
+
       <div class="muted" id="err" style="min-height:18px;margin-top:6px"></div>
     </form>
   </div>
@@ -83,36 +127,6 @@
 <script>
 const API = "/api/generate";
 const DEBUG = new URLSearchParams(location.search).has("debug");
-
-/* ---------- Defaults sent as overrides (hidden from the user) ---------- */
-const DEFAULTS = {
-  units: 1,
-  down: 25,
-  rate: 7.7,
-  term: 30,
-  points: 0,
-  closing: 2,
-  rehab: 0,
-  vacancy: 5,
-  management: 8,
-  maintenance: 8,
-  taxes: 0,
-  insurance: 0,
-  hoa: 0,
-  utilities: 0,
-  other: 0,
-  targetcap: 8,
-  selfManaged: false
-};
-function buildOverrides(d=DEFAULTS){
-  return (d.selfManaged ? "self-managed; " : "") +
-    "units " + d.units + "; " +
-    "down " + d.down + "%; rate " + d.rate + "%; term " + d.term + "y; " +
-    "points " + d.points + "%; closing " + d.closing + "%; rehab " + d.rehab + "; " +
-    "vacancy " + d.vacancy + "%; management " + d.management + "%; maintenance " + d.maintenance + "%; " +
-    "taxes " + d.taxes + "; insurance " + d.insurance + "; hoa " + d.hoa + "; utilities " + d.utilities + "; other " + d.other + "; " +
-    "targetcap " + d.targetcap + "%";
-}
 
 /* ---------- Helpers ---------- */
 const fmtUSD = n => (n==null||isNaN(n)) ? "-" :
@@ -209,9 +223,9 @@ function compute(d){
   };
 
   const loaded = 1 + d.closingPct + d.pointsPctOfPrice;
-  const maxPurchaseAtTargetCap = d.targetCap>0 ? (noi / d.targetCap) / loaded : null;
+  theMax = d.targetCap>0 ? (noi / d.targetCap) / loaded : null;
 
-  return { monthlyRent, annualGSR, vacancy, egi, maintenance, management, opEx, noi, closing, pointsCost, totalCost, loanAmount, monthlyPI, ads, dscr, cashInvested, cashFlow, cap, onePctRule, sens, maxPurchaseAtTargetCap };
+  return { monthlyRent, annualGSR, vacancy, egi, maintenance, management, opEx, noi, closing, pointsCost, totalCost, loanAmount, monthlyPI, ads, dscr, cashInvested, cashFlow, cap, onePctRule, sens, maxPurchaseAtTargetCap: theMax };
 }
 
 /* ---------- Render ---------- */
@@ -219,10 +233,10 @@ function render(d){
   const c = compute(d);
   const el = document.getElementById("report");
   el.innerHTML = `
-    <div class="row">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
       <div>
-        <h1>Investment Report — ${d.address}</h1>
-        <div class="muted">Prepared: ${d.prepared}</div>
+        <h1 style="margin:0;font-size:22px">Investment Report — ${d.address}</h1>
+        <div class="muted">Prepared: ${new Date().toLocaleDateString()}</div>
       </div>
       <button class="btn print no-print" onclick="window.print()">Download / Print PDF</button>
     </div>
@@ -253,95 +267,6 @@ function render(d){
 
     <h2>Units & Rents</h2>
     ${table([["Unit","Rent"]], d.units.map(u=>[u.name, fmtUSD(u.rent)+"/mo"]))}
-
-    ${d.comps.length ? (
-      '<h2>Rental Comps</h2><div class="muted">Plain text only (no links).</div>' +
-      table([["Address","Bed/Bath","Rent","Distance","Condition"]],
-        d.comps.map(c=>[
-          c.address,
-          c.beds,
-          fmtUSD(c.rent),
-          (c.dist==null ? "-" : (Number(c.dist).toFixed(1) + " mi")),
-          (c.condition||"")
-        ]))
-    ) : ''}
-
-    <h2>Income & Expenses</h2>
-    <div class="grid2">
-      <div class="card pad">
-        <h3 class="muted">Income (Annual)</h3>
-        ${table([], [
-          ["Gross Scheduled Rent", fmtUSD(c.annualGSR)],
-          ["Less Vacancy", fmtUSD(c.vacancy)],
-          ["Effective Gross Income (EGI)", fmtUSD(c.egi), true],
-        ])}
-        <div class="muted">EGI = Gross Rent × (1 − Vacancy)</div>
-      </div>
-      <div class="card pad">
-        <h3 class="muted">Operating Expenses (Annual)</h3>
-        ${table([], [
-          ["Property Taxes", fmtUSD(d.snapshot.taxesAnnual)],
-          ["Insurance", fmtUSD(d.snapshot.insAnnual)],
-          ["HOA", fmtUSD(d.snapshot.hoa.annual||0)],
-          ["Maintenance (8% of gross)", fmtUSD(c.maintenance)],
-          ["Management", fmtUSD(c.management)],
-          ["Utilities (LL-paid)", fmtUSD(d.utilsLL)],
-          ["Other", fmtUSD(d.otherOpEx)],
-          ["Total OpEx", fmtUSD(c.opEx), true],
-        ])}
-        <div class="muted">OpEx = Taxes + Insurance + HOA + Maintenance + Management + Utilities + Other</div>
-      </div>
-    </div>
-
-    <h2>Financing</h2>
-    ${table([], [
-      ["Down Payment", pct(d.fin.downPct)],
-      ["Rate (annual)", pct(d.fin.rateAnnual)],
-      ["Term", (d.fin.termMonths + " mo")],
-      ["Loan Amount", fmtUSD(c.loanAmount)],
-      ["Monthly P&I", fmtUSD(c.monthlyPI)],
-      ["Annual Debt Service", fmtUSD(c.ads)],
-      ["DSCR", (c.dscr||0).toFixed(2)+"×", true],
-      ["Cash Invested (Down + Closing + Points + Rehab)", fmtUSD(c.cashInvested), true],
-      ["Cash Flow (Annual)", fmtUSD(c.cashFlow)],
-      ["Cash-on-Cash ROI", c.cashInvested>0 ? ( (c.cashFlow/c.cashInvested*100).toFixed(2)+"%" ) : "-", true],
-      ["1% Rule", (c.onePctRule*100).toFixed(2)+"%"]
-    ])}
-
-    <h2>Sensitivity</h2>
-    ${table([["Scenario","NOI","Cap","DSCR","Cash Flow"]], [
-      ["Rent −10%", fmtUSD(c.sens(0.9,1).noi), pct(c.sens(0.9,1).capRate), (c.sens(0.9,1).dscr||0).toFixed(2)+"×", fmtUSD(c.sens(0.9,1).cashFlow)],
-      ["Base Case", fmtUSD(c.noi), pct(c.cap), (c.dscr||0).toFixed(2)+"×", fmtUSD(c.cashFlow)],
-      ["Rent +10%", fmtUSD(c.sens(1.1,1).noi), pct(c.sens(1.1,1).capRate), (c.sens(1.1,1).dscr||0).toFixed(2)+"×", fmtUSD(c.sens(1.1,1).cashFlow)],
-      ["OpEx −10%", fmtUSD(c.sens(1,0.9).noi), pct(c.sens(1,0.9).capRate), (c.sens(1,0.9).dscr||0).toFixed(2)+"×", fmtUSD(c.sens(1,0.9).cashFlow)],
-      ["OpEx +10%", fmtUSD(c.sens(1,1.1).noi), pct(c.sens(1,1.1).capRate), (c.sens(1,1.1).dscr||0).toFixed(2)+"×", fmtUSD(c.sens(1,1.1).cashFlow)]
-    ])}
-
-    <h2>Negotiation Target</h2>
-    ${table([], [
-      ["Target Cap", pct(d.targetCap)],
-      ["Max Purchase @ Target Cap<br><span class='muted'>=(NOI ÷ TargetCap) ÷ (1+Closing%+Points%)</span>", fmtUSD(c.maxPurchaseAtTargetCap), true]
-    ])}
-
-    <h2>Risks</h2>
-    <ul>
-      <li>Insurance cost volatility and wind/hurricane deductibles in coastal FL markets.</li>
-      <li>Tax reassessment post-purchase may raise annual taxes.</li>
-      <li>Aging systems (roof/HVAC/plumbing) can increase capex and vacancy.</li>
-      <li>HOA rules (if applicable) may restrict rentals or add special assessments.</li>
-      <li>Local demand and vacancy risk—monitor absorption and concession trends.</li>
-    </ul>
-
-    <h2>Glossary</h2>
-    <div class="grid2">
-      <div class="card pad"><b>EGI</b> — Effective Gross Income: rent after vacancy.</div>
-      <div class="card pad"><b>OpEx</b> — Operating Expenses: taxes, insurance, HOA, maintenance, management, utilities, other.</div>
-      <div class="card pad"><b>NOI</b> — Net Operating Income: EGI minus OpEx.</div>
-      <div class="card pad"><b>Cap</b> — Capitalization Rate: NOI ÷ Total Cost.</div>
-      <div class="card pad"><b>DSCR</b> — Debt Service Coverage Ratio: NOI ÷ Annual Debt Service.</div>
-      <div class="card pad"><b>CoC</b> — Cash-on-Cash ROI: Annual Cash Flow ÷ Cash Invested.</div>
-    </div>
-    <div class="muted" style="margin-top:12px">For underwriting/education only. Not legal, tax, accounting, or financial advice.</div>
   `;
   document.getElementById("reportEmpty").style.display="none";
   el.style.display="block";
@@ -359,10 +284,9 @@ function table(headers, rows){
   return '<table>'+thead+'<tbody>'+body+'</tbody></table>';
 }
 
-/* ---------- Submit (address + price only) ---------- */
+/* ---------- Submit ---------- */
 const errBox = document.getElementById("err");
 const btn = document.getElementById("go");
-
 function numFromInput(v){ return v==null||v.trim()==="" ? undefined : Number(v.replace(/[$,\s]/g,"")); }
 
 document.getElementById("f").addEventListener("submit", async (e)=>{
@@ -374,7 +298,35 @@ document.getElementById("f").addEventListener("submit", async (e)=>{
     if(!address){ errBox.textContent="Please enter an address."; btn.disabled=false; btn.textContent="Generate"; return; }
 
     const purchasePrice = numFromInput(document.getElementById("price").value);
-    const overrides = buildOverrides(DEFAULTS); // hidden defaults
+    const units = numFromInput(document.getElementById("units").value) ?? 1;
+    const beds = numFromInput(document.getElementById("beds").value) ?? 2;
+    const baths = numFromInput(document.getElementById("baths").value) ?? 1;
+
+    // Defaults panel (editable)
+    const down = numFromInput(document.getElementById("down")?.value ?? "25") ?? 25;
+    const rate = numFromInput(document.getElementById("rate")?.value ?? "7.7") ?? 7.7;
+    const term = numFromInput(document.getElementById("term")?.value ?? "30") ?? 30;
+    const points = numFromInput(document.getElementById("points")?.value ?? "0") ?? 0;
+    const closing = numFromInput(document.getElementById("closing")?.value ?? "2") ?? 2;
+    const rehab = numFromInput(document.getElementById("rehab")?.value ?? "0") ?? 0;
+    const vacancy = numFromInput(document.getElementById("vacancy")?.value ?? "5") ?? 5;
+    const mgmt = (document.getElementById("selfmgmt")?.checked ? 0 : (numFromInput(document.getElementById("mgmt")?.value ?? "8") ?? 8));
+    const maint = numFromInput(document.getElementById("maint")?.value ?? "8") ?? 8;
+    const taxes = numFromInput(document.getElementById("taxes")?.value ?? "0") ?? 0;
+    const ins = numFromInput(document.getElementById("ins")?.value ?? "0") ?? 0;
+    const hoa = numFromInput(document.getElementById("hoa")?.value ?? "0") ?? 0;
+    const utils = numFromInput(document.getElementById("utils")?.value ?? "0") ?? 0;
+    const other = numFromInput(document.getElementById("other")?.value ?? "0") ?? 0;
+    const targetcap = numFromInput(document.getElementById("targetcap")?.value ?? "8") ?? 8;
+
+    const overrides =
+      ((document.getElementById("selfmgmt")?.checked) ? "self-managed; " : "") +
+      "units " + units + "; beds " + beds + "; baths " + baths + "; " +
+      "down " + down + "%; rate " + rate + "%; term " + term + "y; " +
+      "points " + points + "%; closing " + closing + "%; rehab " + rehab + "; " +
+      "vacancy " + vacancy + "%; management " + mgmt + "%; maintenance " + maint + "%; " +
+      "taxes " + taxes + "; insurance " + ins + "; hoa " + hoa + "; utilities " + utils + "; other " + other + "; " +
+      "targetcap " + targetcap + "%";
 
     const r = await fetch(API, {
       method:"POST",
@@ -405,6 +357,7 @@ document.getElementById("f").addEventListener("submit", async (e)=>{
 
 </body>
 </html>
+
 
 
 
